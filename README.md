@@ -1,1 +1,1 @@
-# eurobot-2022
+Repository for Eurobot 2022 projects
