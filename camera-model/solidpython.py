@@ -1,7 +1,8 @@
 from solid import *
 from solid.utils import *
 
-result = cylinder(r=10, h=5) + cylinder(r=2, h=30)
+camera = cube([96, 4, 27]) + translate([(96-57)/2, 4, (27-21)/2])(cube([57, 16, 21])) + rotate()(cylinder(4, 9))
 
-with open ('result.scad', 'w') as file:
-	file.write(scad_render(result))
+result = camera
+
+scad_render_to_file(result, 'result.scad')
