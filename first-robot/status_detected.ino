@@ -17,8 +17,8 @@ GStepper< STEPPER2WIRE> stepperRight(800, A0, A1, A2);
 microLED<NUMLEDS, STRIP_PIN, MLED_NO_CLOCK, LED_WS2818, ORDER_GRB, CLI_AVER> led;
 
 /*Config*/
-const uint64_t pipe = 0xF0F1F2F3F4LL; //Pipe
-RF24 radio(9, 10); // CE, CSN
+const uint64_t pipe = 0xF0F1F2F3F4LL;
+RF24 radio(9, 10);
 const int robot_id = 0; //Number of the robot(can be 0 - our first robot, or 1 - our second robot)
 const int LEDS = true; //Use leds for displaying info
 const int SERIAL_DBG = true; //Use serial printing for displaying info
@@ -37,6 +37,7 @@ int stepTimer;
 int stepcounter;
 byte leftMoving;
 byte rightMoving; 
+int last_stop_time = 0;
 /*Other variables end*/
 
 /*Functions*/
@@ -47,6 +48,7 @@ int millimeters_to_steps(int mm) {
 
 
 int get_status(byte* input_data) {
+     float dist;
      for (int i = 0; i < 8; i++) {
          return_data[i * 2] = input_data[i] >> 4;
          return_data[i * 2 + 1] = input_data[i] & 0b00001111;
@@ -55,14 +57,23 @@ int get_status(byte* input_data) {
      switch (robot_id)
      {
         case 0:
-            /*Local Tests(bypass radio data)
+            /*
+             * Test debug for (int i = 0; i < 16; i++){
+                Serial.print(return_data[i]);
+                Serial.print(" ");
+            }
+            Serial.println(); */
+            
+            /*
             return_data[0] = 10;
             return_data[1] = 10;
             return_data[2] = 5;
             return_data[3] = 5; */
             
+            
+               
             for (int i = 4; i <= 15; i += 2) {
-                 int dist = sqrt(pow(return_data[0] - return_data[i], 2) + pow(return_data[1] - return_data[i + 1], 2));
+                 dist = sqrt(pow(return_data[0] - return_data[i], 2) + pow(return_data[1] - return_data[i + 1], 2));
                  if ((dist == 2) and (status != 2)) {
                      status = 1;
                  } else if (dist <= 1) {
@@ -70,8 +81,9 @@ int get_status(byte* input_data) {
                  }
              }
              if (return_data[2] != 15 and return_data[3] != 15) {
+              
                 for (int i = 4; i <= 15; i += 2) {
-                   int dist = sqrt(pow(return_data[2] - return_data[i], 2) + pow(return_data[3] - return_data[i + 1], 2));
+                   dist = sqrt(pow(return_data[2] - return_data[i], 2) + pow(return_data[3] - return_data[i + 1], 2));
                    if ((dist == 2) and (status != 2)) {
                        status = 1;
                    } else if (dist <= 1) {
@@ -79,11 +91,15 @@ int get_status(byte* input_data) {
                    }
                 } 
              }
+             if (dist == 0){
+                status = 0;
+             }
+             Serial.print("Distance: ");
+             Serial.println(dist);
              return status;
              break;
         case 1:
-            //Ctrl+C & Ctrl+V & changed index
-            /* Local Test
+            /* 
             return_data[0] = 5;
             return_data[1] = 5;
             return_data[2] = 5;
@@ -149,8 +165,6 @@ void nextStep() {
     
     stepperLeft.setTarget(steps_square[stepcounter][0], RELATIVE);
     stepperRight.setTarget(steps_square[stepcounter][1], RELATIVE);
-  }else if(SERIAL_DBG){
-    Serial.print("Debug: "); Serial.println("BRAKED NOW!");
   }
 }
 /*Functions end*/
@@ -159,11 +173,12 @@ void setup() {
   if (SERIAL_DBG){Serial.begin(115200);}
   delay(2); //?
   radio.begin();
-  radio.setChannel(radio_channel); // канал (0-127)
+  radio.setChannel(11); // канал (0-127)
   radio.setDataRate(RF24_1MBPS);
   radio.setPALevel(RF24_PA_HIGH);
   radio.openReadingPipe(1, pipe);
   radio.startListening();
+  
   if (SERIAL_DBG){Serial.print("Debug: "); Serial.println("Radio initialized - OK");}
 
   stepperLeft.setRunMode(FOLLOW_POS);
@@ -198,51 +213,53 @@ void loop() {
     if (radio.available()){
         radio.read(data, sizeof(data));
         if (not(data[0] == 255 && data[1] == 255 && data[2] == 255 && data[3] == 255 && data[4] == 255 && data[5] == 255 && data[6] == 255 && data[7] == 255)){
+          led.leds[0] = 0;
+          led.show();
           int status_result = get_status(data);
           Serial.println(status_result);
           switch (status_result){
-              case 0:
-                if(SERIAL_DBG){Serial.print("Debug: "); Serial.println("OK - No obstacles");}
-                stepperLeft.setMaxSpeed(robot_max_speed);
-                stepperRight.setMaxSpeed(robot_max_speed);
-                braked = false;
-                if (LEDS){ //Clear LEDS - No warnings
-                  led.leds[0] = 0;
-                  led.show();
-                }
-                break;
+              if (millis() - last_stop_time){
+                case 0:
+                    if(SERIAL_DBG){Serial.print("Debug: "); Serial.println("OK - No obstacles");}
+                    stepperLeft.setMaxSpeed(robot_max_speed);
+                    stepperRight.setMaxSpeed(robot_max_speed);
+                    braked = false;
+                    if (LEDS){ //Clear LEDS - No warnings
+                      led.leds[0] = 0;
+                      led.show();
+                    }
+                    break;
                 
-              case 1:
-                if(SERIAL_DBG){Serial.print("Debug: "); Serial.println("Warning - Less speed");}
-                stepperLeft.setMaxSpeed(robot_warning_speed);
-                stepperRight.setMaxSpeed(robot_warning_speed);
-                braked = false;
-                if (LEDS){ //Warning; low distance to another robot
-                  led.leds[0] = mYellow;
-                  led.show();
-                }
-                break;
-               
-              case 2:
-                if(SERIAL_DBG){Serial.print("Debug: "); Serial.println("Alarm - Stop | Too low distance");}
-                if (!braked)
-                {
-                   stepperLeft.disable();
-                   stepperRight.disable(); 
-                   braked = true;
-                   if (LEDS){
-                    led.leds[0] = mRed;
-                    led.show();
-                   }
-                }
-                break;
+                case 1:
+                    if(SERIAL_DBG){Serial.print("Debug: "); Serial.println("Warning - Less speed");}
+                    stepperLeft.setMaxSpeed(robot_warning_speed);
+                    stepperRight.setMaxSpeed(robot_warning_speed);
+                    braked = false;
+                    if (LEDS){ //Warning; low distance to another robot
+                      led.leds[0] = mYellow;
+                      led.show();
+                    }
+                    break;
+                 
+                case 2:
+                    if(SERIAL_DBG){Serial.print("Debug: "); Serial.println("Alarm - Stop | Too low distance");}
+                    last_stop_time = millis();
+                    if (!braked)
+                    {
+                       stepperLeft.disable();
+                       stepperRight.disable(); 
+                       braked = true;
+                       if (LEDS){
+                        led.leds[0] = mRed;
+                        led.show();
+                       }
+                    }
+                  break;
+              }
+              
                 
           }    
-        } else{
-          if(SERIAL_DBG){Serial.print("Warning: "); Serial.println("Recieved empty data-packet");}
-        }   
-    }else{
-      Serial.print("Fatal error: "); Serial.print("Radio not available!");
+        } 
     }
     leftMoving = stepperLeft.tick();
     rightMoving = stepperRight.tick();
