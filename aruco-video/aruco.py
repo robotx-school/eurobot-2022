@@ -20,10 +20,11 @@ marked_field = field.copy()
 
 botmarkers = [[130, 131, 132, 133], [134, 135, 136, 137], [139, 140, 141, 142], [143, 144, 145, 146]]
 
-port = serial.Serial('COM5', 115200, timeout=1)
+# port = serial.Serial('COM5', 115200, timeout=1)
+port = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
 port.flush()
 
-##dims = (854, 480)
+# dims = (854, 480)
 dims = (1280, 720)
 
 h, w = dims

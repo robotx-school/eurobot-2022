@@ -24,15 +24,14 @@ void loop() {
   if (Serial.available() > 0) {
     delay(2);
     Serial.readBytes(data, sizeof(data));
-    while(Serial.available()) {
+    while (Serial.available()) {
       byte g = Serial.read();
     }
-    for (int i = 0; i<8; i++) {
+    for (int i = 0; i < 8; i++) {
       Serial.print(data[i]);
-      }
-      Serial.println();
-  }
+    }
+    Serial.println();
     radio.write(data, sizeof(data));
     delay(20);
-    
+  }
 }
