@@ -13,6 +13,7 @@ filename = logging_dir + str(datetime.now().strftime("%Y-%m-%d-%H-%M-%S")) + '.l
 open(filename, 'w').close()
 
 botmarkers = [[130, 131, 132, 133], [134, 135, 136, 137], [139, 140, 141, 142], [143, 144, 145, 146]]
+byte_data = 0
 
 port = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
 port.flush()
@@ -184,9 +185,9 @@ def get_coord(image_robots, dictionary, botmarkers):
                     for k in range(len(botmarkers)):
                         if botmarkers[k][0] <= marker_id <= botmarkers[k][-1]:
                             if bots[k][0] == 255:
-                                bots[k][0] = ((j, i), (j, i-1))[k <= 2]
+                                bots[k][0] = ((j, i), (j, i-(1, 0)[i == 0]))[k <= 2]
                             else:
-                                bots[k][1] = ((j, i), (j, i-1))[k <= 2]
+                                bots[k][1] = ((j, i), (j, i-(1, 0)[i == 0]))[k <= 2]
 
         count+=1
 
@@ -257,10 +258,14 @@ for i in range(6):
 old_data = [[255, 255], [255, 255], [255, 255], [255, 255]]
 
 while True:
-    # img = cv2.imread('test.jpg')
     _, img = cap.read()
 
     data = get_coord(img, dictionary, botmarkers)
+
+    old_c = [item for sublist in old_data for item in sublist].count(255)
+    data_c = [item for sublist in data for item in sublist].count(255)
+
+    data = data if data_c <= old_c else old_data
 
     if old_data != data:
         if not pathlib.Path(filename).is_file():
@@ -268,6 +273,7 @@ while True:
 
         log_coord(data, filename)
         old_data = data
+        print(data)
 
     raw_data = sum(data, [])
 
@@ -287,7 +293,7 @@ while True:
 
     port.write(byte_data)
 
-    # print(data)
+    data = old_data
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
             break
