@@ -13,7 +13,6 @@ filename = logging_dir + str(datetime.now().strftime("%Y-%m-%d-%H-%M-%S")) + '.l
 open(filename, 'w').close()
 
 botmarkers = [[130, 131, 132, 133], [134, 135, 136, 137], [139, 140, 141, 142], [143, 144, 145, 146]]
-absence_count = [[4, 4], [4, 4], [4, 4], [4, 4]]
 
 port = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
 port.flush()
@@ -277,14 +276,14 @@ while True:
             raw_data[i] = raw_data[i][0]<<4 | raw_data[i][1]
 
     byte_data = struct.pack('cccccccc',
-                raw_data[0].to_bytes(1, "big"),
-                raw_data[1].to_bytes(1, "big"),
-                raw_data[2].to_bytes(1, "big"),
-                raw_data[3].to_bytes(1, "big"),
-                raw_data[4].to_bytes(1, "big"),
-                raw_data[5].to_bytes(1, "big"),
-                raw_data[6].to_bytes(1, "big"),
-                raw_data[7].to_bytes(1, "big"),)
+                raw_data[0].to_bytes(1, 'big'),
+                raw_data[1].to_bytes(1, 'big'),
+                raw_data[2].to_bytes(1, 'big'),
+                raw_data[3].to_bytes(1, 'big'),
+                raw_data[4].to_bytes(1, 'big'),
+                raw_data[5].to_bytes(1, 'big'),
+                raw_data[6].to_bytes(1, 'big'),
+                raw_data[7].to_bytes(1, 'big'),)
 
     port.write(byte_data)
 
