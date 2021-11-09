@@ -13,6 +13,7 @@ filename = logging_dir + str(datetime.now().strftime("%Y-%m-%d-%H-%M-%S")) + '.l
 open(filename, 'w').close()
 
 botmarkers = [[130, 131, 132, 133], [134, 135, 136, 137], [139, 140, 141, 142], [143, 144, 145, 146]]
+absence_count = [[4, 4], [4, 4], [4, 4], [4, 4]]
 
 port = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
 port.flush()
@@ -164,7 +165,6 @@ def get_coord_img(image_robots, image_field):
     return image_res
 
 def get_coord(image_robots, dictionary, botmarkers):
-    positions={}
     bots = [[255, 255], [255, 255], [255, 255], [255, 255]]
     markers = cv2.aruco.detectMarkers(image_robots,dictionary)
     count=0
@@ -182,12 +182,14 @@ def get_coord(image_robots, dictionary, botmarkers):
         for i in range(6):
             for j in range(10):
                 if tiles[i][j].contains_point(robot_pos):
-                    positions[marker_id] = (j,i)
+                    for k in range(len(botmarkers)):
+                        if botmarkers[k][0] <= marker_id <= botmarkers[k][-1]:
+                            if bots[k][0] == 255:
+                                bots[k][0] = ((j, i), (j, i-1))[k <= 2]
+                            else:
+                                bots[k][1] = ((j, i), (j, i-1))[k <= 2]
+
         count+=1
-    for i in range(len(botmarkers)):
-        for j in range(len(botmarkers[i])):
-            if botmarkers[i][j] in positions.keys():
-                bots[i][j-2 if j>=2 else j] = (positions[botmarkers[i][j]])
 
     return bots
 
@@ -286,7 +288,7 @@ while True:
 
     port.write(byte_data)
 
-    print(data)
+    # print(data)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
             break
