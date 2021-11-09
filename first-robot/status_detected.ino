@@ -21,10 +21,10 @@ const uint64_t pipe = 0xF0F1F2F3F4LL;
 RF24 radio(9, 10);
 const int robot_id = 0; //Number of the robot(can be 0 - our first robot, or 1 - our second robot)
 const int LEDS = true; //Use leds for displaying info
-const int SERIAL_DBG = true; //Use serial printing for displaying info
+const int SERIAL_DBG = false; //Use serial printing for displaying info
 int robot_colors[2] = {mBlue, mYellow}; //if LEDS = true after switching on, a light on the led indicator lights up depending on the number of the robot
-int robot_max_speed = 700;
-int robot_warning_speed = 100;
+int robot_max_speed = 1000;
+int robot_warning_speed = 400;
 const int radio_channel = 11;
 /*Config end*/
 
@@ -38,6 +38,8 @@ int stepcounter;
 byte leftMoving;
 byte rightMoving;
 int last_stop_time = 0;
+uint32_t time_start;
+int status_result;
 /*Other variables end*/
 
 /*Functions*/
@@ -48,16 +50,18 @@ int millimeters_to_steps(int mm) {
 
 
 int get_status(byte* input_data) {
+  
   int current_dist;
   int result_dist = 30;
   for (int i = 0; i < 8; i++) {
     return_data[i * 2] = input_data[i] >> 4;
     return_data[i * 2 + 1] = input_data[i] & 0b00001111;
   }
-
-  for (int i = 0; i < 16; i++) {
-    Serial.print(return_data[i]);
-    Serial.print(" ");
+  if (SERIAL_DBG){
+    for (int i = 0; i < 16; i++) {
+      Serial.print(return_data[i]);
+      Serial.print(" ");
+    }
   }
   int status = 0;
   switch (robot_id)
@@ -71,11 +75,6 @@ int get_status(byte* input_data) {
         }
         Serial.println(); */
 
-      /*
-        return_data[0] = 10;
-        return_data[1] = 10;
-        return_data[2] = 5;
-        return_data[3] = 5; */
 
 
 
@@ -106,27 +105,18 @@ int get_status(byte* input_data) {
         }
 
       }
-
-      Serial.print("Status: ");
-      Serial.println(status);
-      Serial.print("Dist: ");
-      Serial.println(result_dist);
-      
-      if (result_dist == 0) {
-        Serial.println("Empty");
-        led.leds[0] = mGreen;
-        led.show();
+      if (SERIAL_DBG){
+        Serial.print("Status: ");
+        Serial.println(status);
+        Serial.print("Dist: ");
+        Serial.println(result_dist);
       }
-
-
+      
+    
       return status;
       break;
     case 1:
-      /*
-        return_data[0] = 5;
-        return_data[1] = 5;
-        return_data[2] = 5;
-        return_data[3] = 5;*/
+
 
       for (int i = 4; i <= 15; i += 2) {
         int dist = sqrt(pow(return_data[4] - return_data[i], 2) + pow(return_data[5] - return_data[i + 1], 2));
@@ -248,69 +238,78 @@ void setup() {
 
 
 void loop() {
+  
   if (radio.available()) {
 
     radio.read(data, sizeof(data));
-    if (not(data[0] == 255 && data[1] == 255 && data[2] == 255 && data[3] == 255 && data[4] == 255 && data[5] == 255 && data[6] == 255 && data[7] == 255)) {
+    if (not(data[0] == 255 && data[1] == 255 && data[2] == 255 && data[3] == 255)) {
       if (SERIAL_DBG) {
         Serial.println("Camera");
       }
-      led.leds[0] = 0;
-      led.show();
-      int status_result = get_status(data);
-      switch (status_result) {
-          
-          case 0:
-            if (SERIAL_DBG) {
-              Serial.print("Debug: ");
-              Serial.println("OK - No obstacles");
-            }
-            stepperLeft.setMaxSpeed(robot_max_speed);
-            stepperRight.setMaxSpeed(robot_max_speed);
-            braked = false;
-            if (LEDS) { //Clear LEDS - No warnings
-              led.leds[0] = 0;
-              led.show();
-            }
-            break;
 
-          case 1:
-            if (SERIAL_DBG) {
-              Serial.print("Debug: ");
-              Serial.println("Warning - Less speed");
-            }
-            stepperLeft.setMaxSpeed(robot_warning_speed);
-            stepperRight.setMaxSpeed(robot_warning_speed);
-            braked = false;
-            if (LEDS) { //Warning; low distance to another robot
-              led.leds[0] = mYellow;
-              led.show();
-            }
-            break;
-
-          case 2:
-            if (SERIAL_DBG) {
-              Serial.print("Debug: ");
-              Serial.println("Alarm - Stop | Too low distance");
-            }
-            last_stop_time = millis();
-            if (!braked)
-            {
-              stepperLeft.disable();
-              stepperRight.disable();
-              braked = true;
-              if (LEDS) {
-                led.leds[0] = mRed;
+      time_start = millis();
+      status_result = get_status(data);
+      if (millis() - last_stop_time > 500){
+        switch (status_result) {
+            case 0:
+              if (SERIAL_DBG) {
+                Serial.print("Debug: ");
+                Serial.println("OK - No obstacles");
+              }
+              stepperLeft.setMaxSpeed(robot_max_speed);
+              stepperRight.setMaxSpeed(robot_max_speed);
+              braked = false;
+              if (LEDS) { //Clear LEDS - No warnings
+                led.leds[0] = mBlue;
                 led.show();
               }
-            }
-            break;
-          
-
-
+              break;
+            case 1:
+              if (SERIAL_DBG) {
+                Serial.print("Debug: ");
+                Serial.println("Warning - Less speed");
+              }
+              stepperLeft.setMaxSpeed(robot_warning_speed);
+              stepperRight.setMaxSpeed(robot_warning_speed);
+              braked = false;
+              if (LEDS) { //Warning; low distance to another robot
+                led.leds[0] = mYellow;
+                led.show();
+              }
+              break;
+  
+            case 2:
+              if (LEDS) {
+                  led.leds[0] = mRed;
+                  led.show();
+                }
+              if (SERIAL_DBG) {
+                Serial.print("Debug: ");
+                Serial.println("Alarm - Stop | Too low distance");
+              }
+              if (!braked)
+              {
+                stepperLeft.disable();
+                stepperRight.disable();
+                braked = true;
+                last_stop_time = millis();
+                
+              }
+              break;
+        }
       }
+      if (SERIAL_DBG){
+        Serial.print("Time: ");
+        Serial.println(millis() - time_start);
+      }
+      
+    }else if((status_result == 1 || status_result == 2) && millis() - last_stop_time > 500){
+        status_result = 0;
+        stepperLeft.setMaxSpeed(robot_max_speed);
+        stepperRight.setMaxSpeed(robot_max_speed);
     }
   }
+  
   leftMoving = stepperLeft.tick();
   rightMoving = stepperRight.tick();
   if (!leftMoving and !rightMoving ) {
