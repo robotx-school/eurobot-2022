@@ -1,6 +1,6 @@
 Запустить скрипт подготовки(для установки необходимых библиотек)
 <code>chmod +x prepare.sh && chmod +x builder.sh <br> 
-./prepare.sh</code><br>
+&& ./prepare.sh</code><br>
 Затем начать сборку(автоматически скачаются исходники PyTorch)<br>
 <code>./builder.sh</code><br>
 После сборки в папке dist будет собранный whl образ
