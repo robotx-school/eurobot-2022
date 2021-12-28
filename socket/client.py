@@ -1,62 +1,72 @@
-from ctypes import sizeof
-from os import extsep
 import socket
-import sys
-import time, cv2
-import numpy as np
+import cv2
+import numpy
+import time
+import terminal_color
+import traceback
 
-def encode_image(image):
-    stringData = str(image.tolist()).encode("utf-8")
-    return stringData
-    
-    
 
-def group(iterable, count): 
-    return zip(*[iter(iterable)] * count)
+def connector():
+    global sock
+    # sock.close()
+    connected = False
+    while not connected:
+        print(terminal_color.out_yellow("Connecting..."))
+        try:
+            sock.connect((IP, PORT))
+            print(terminal_color.out_green("Connected"))
+            connected = True
+        except Exception:
+            print(traceback.format_exc())
+            print(terminal_color.out_red("Can't connect to NetServer"))
+            time.sleep(2)
 
-def out_red(text):
-    return "\033[31m {}" .format(text)
-def out_yellow(text):
-    return "\033[33m {}" .format(text)
-def out_green(text):
-    return "\033[32m {}" .format(text)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_address = ('192.168.0.125', 10001)
-print(f'Подключено к {server_address[0]} порт {server_address[1]}')
+sock.settimeout(5.0)
 
-attempts = 0
-connected = False
-while not connected:
-    print(out_yellow("Connecting..."))
+IP = 'localhost'
+PORT = 9093
+
+connector()
+
+#capture = cv2.VideoCapture(0)
+while True:
+    started = time.time()
+    #ret, frame = capture.read()
+    frame = cv2.imread("test.jpg")
+
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+    result, imgencode = cv2.imencode('.jpg', frame, encode_param)
+    data = numpy.array(imgencode)
+    stringData = data.tostring()
     try:
-        sock.connect(server_address)
-        print(out_green("Connected"))
-        connected = True
-    except ConnectionRefusedError:
-        print(out_red("Can't connect to server"))
-        time.sleep(2)
+        sock.send(str(len(stringData)).ljust(16).encode("utf-8"))
+        print("Sending_0")
+        sock.send(stringData)
+        print("Sending_1")
+    except BrokenPipeError:
+        connector()
+        continue
+    data_recieved = False
+    while not data_recieved:
+        try:
+            from_server = sock.recv(1024)
+            print("Recv")
+            if from_server:
+                coords = from_server.decode("utf-8").split("|")
+                print(coords)
+            data_recieved = True
+        except socket.timeout:
+            print("Wait")
+            time.sleep(1)
+        except:
+            time.sleep(5)
+            connector()
+            print("Reconnected")
+            data_recieved = True
+            break
 
-#mess = [1, 2, 2, 3, 3, 3]
-#mess = str(mess)
-#print(f'Отправка: {mess}')
-#message = mess.encode()
-img = cv2.imread("small.jpg")
-message = encode_image(img)
-#message 
-try:
-    sock.sendall(message[])
-except:
-    print("Error")
+    print("fps:", 1 / (time.time() - started))
 
-
-amount_received = 0
-amount_expected = len(message)
-while amount_received < amount_expected:
-    data = sock.recv(1024)
-    amount_received += len(data)
-    mess = data.decode()
-    print(f'Получено: {data.decode()}')
-
-print('Закрываем сокет')
 sock.close()
