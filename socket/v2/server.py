@@ -1,5 +1,4 @@
 import socket
-import cv2
 import numpy as np
 from _thread import start_new_thread
 
