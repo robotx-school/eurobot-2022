@@ -1,38 +1,56 @@
 import socket
+import cv2
 import time
 
-while True:
-    sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_address1 = ('192.168.0.168', 8080)
-    # print('Подключено к {} порт {}'.format(*server_address1))
+
+def send_image(filename, socket):
+    img = open(filename, 'rb')
+    print(f'Sending: {img.name}')
+
+    while True:
+        data = img.read(4096)
+        print(data)
+
+        if not data:
+            break
+
+        socket.send(data)
+        time.sleep(0.1)
+
+    img.close()
+    print(f'Sent: {img.name}')
+
+
+def main():
     try:
-        sock1.connect(server_address1)
-        while 1:
-            image_result = open("image2.png", "rb")
-            while True:
-                string = image_result.read(512)
-                print(string)
-                if not string:
-                    break
-                sock1.send(string)
-            image_result.close()
-            # mess = [1, 2, 2, 3, 3, 3]
-            # mess = str(mess)
-            # message = pickle.dumps(image_result)
-            # sock1.sendall(message)
-            print(f'Отправка: {image_result}')
-            # data_string = pickle.dumps()
-            # sock1.send(data_string)
-            print("wait recieve")
-            data = sock1.recv(32)
-            print("recieve:", data)
-            time.sleep(3)
-    except ConnectionRefusedError:
-        print("no connection")
-        time.sleep(5)
-    except BrokenPipeError:
-        print("port was closed")
-        time.sleep(10)
-    except ConnectionResetError:
-        print("virubili")
-        time.sleep(3)
+        server = ('localhost', 8080)
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        while True:
+            try:
+                s.connect(server)
+                print('Connected to {}:{}'.format(*server))
+
+                send_image('transmitted.png', s)
+                break
+
+            except ConnectionRefusedError:
+                print('No connection')
+                time.sleep(5)
+                pass
+
+            except BrokenPipeError:
+                print('Port was closed')
+                time.sleep(10)
+
+            except ConnectionResetError:
+                print('Server was closed')
+                time.sleep(3)
+
+    except KeyboardInterrupt:
+        print('\nClient exited')
+
+
+if __name__ == '__main__':
+    main()
