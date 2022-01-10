@@ -92,18 +92,18 @@ class Image:
             cv2.line(field, (i, 0), (i, 607), (0, 255, 0), 3)
 class Robots:
     def __init__(self, img):
-        self.aruco_data = aruco.find_robots(img)
+        self.aruco_data, self.robots_pixels = aruco.find_robots(img)
         self.img = img
     def recheck_aruco(self, img):
-        self.aruco_data = aruco.find_robots(img)
+        self.aruco_data, self.robots_pixels = aruco.find_robots(img)
         self.img = img
     def robots_count_aruco(self):
         robots_count = 0
         for i in self.aruco_data:
             if i[0] != 255 or i[1] != 255:
                 robots_count += 1
-        robots_count = 4 #на имеющихся тестовых данных на некоторых роботах нет маркера (16.jpg)
-        return robots_count
+        robots_count = 3 #на имеющихся тестовых данных на некоторых роботах нет маркера (16.jpg)
+        return robots_count, self.robots_pixels
     
 
 class Logger:
@@ -114,8 +114,9 @@ class Logger:
     def write_log(self, message):
         with open(self.log_path, "a") as file:
             file.write(f"[ERROR][{str(time.ctime())}] {message} \n")
-
-if __name__ == "__main__":
+'''
+PROD
+def only_collisions():
     #initing logger first
     letters_for_robots = ["A", "B", "C", "D", "F", "E"]
     STATUS = 1 #DEBUG - 1; PRODUCTION - 0 #PRODUCTION only errors writing in log file
@@ -128,7 +129,139 @@ if __name__ == "__main__":
         print(Fore.YELLOW + f"[INFO] Loading model...")
     try:
         net = Net("model.t")
-    except:
+    except: 
+        if not STATUS: #log
+            log.write_log(str(traceback.format_exc()))
+        else:
+            print(Fore.RED + f"[ERROR] Can't load model - {str(traceback.format_exc())}")
+        exit(1)
+    print(Fore.GREEN + f"[INFO] Model loaded")
+    img_worker = Image()
+    
+    if STATUS: print(Fore.YELLOW + f"[INFO] Inited")
+    for iii in range(10):
+        strt_time = time.time()
+        img = cv2.imread("tests/13.jpg") #1.jpg 3.jpg 4.jpg(A и С не должно быть) 5.jpg - работает нормально 10.jpg
+        
+        robots_worker = Robots(img)
+        robots_count, robots_pixels = robots_worker.robots_count_aruco()
+        if STATUS: print(Fore.GREEN + f"[DEBUG] Aruco robots count: {robots_count}")
+        img, shape = img_worker.corerct_perspective(img)
+        img = cv2.resize(img, (512, 512))
+        img = img[0:330, 0:512] #убираем пустоту внизу
+        img, mask = net.get_colored_img(img)
+        #img_worker.draw_lines(img) #рисуем сетку на фотографии
+        mask = np.where(mask[0, :, :] == 1, 255, 0)
+        cv2.imwrite("mask.png", mask) # исправить
+        m = cv2.imread("mask.png") # исправить через np.uint8
+        m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
+        contours, hierarchy = cv2.findContours(m,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_TC89_L1)
+        moments = [i["m00"] for i in map(cv2.moments, contours)] #площади
+        contours = list(contours)
+        c = 0
+        final = []
+        # Новая проверка по площадям
+        # Через aruco получаем крлличество роботов
+        # Сортируем площади(по убыванию) и минимум равен 
+        # n - ому элементу массива площадей 
+        temp_moments = sorted(moments, reverse=True)
+        min_square = temp_moments[robots_count - 1]
+        if min_square < 50:#минимальная площадь слишком маленькая
+            print(Fore.YELLOW + "Warning: to minimum. Aruco errored?")
+        robots_coords = []
+        for i in map(cv2.moments, contours):
+            if i["m00"] >= min_square:
+                #x,y,w,h = cv2.boundingRect(contours[c])
+                #cv2.rectangle(img,(x,y),(x+w,y+h),(0, 255, 0),2)
+                rect = cv2.minAreaRect(contours[c])
+                #print(rect[0])
+                #cv2.circle(img,(int(rect[0][0]), int(rect[0][1])),5,(0,255,0),-1)
+                #center_x = rect[0][0]
+                #center_y = rect[0][1]
+                box = cv2.boxPoints(rect)
+                #cv2.circle(img,(int(box[1][0]), int(box[1][1])),5,(0,255,0),-1)
+                #cv2.circle(img,(int(box[2][0]), int(box[2][1])),5,(0,255,0),-1)
+                #cv2.circle(img,(int(box[3][0]), int(box[3][1])),5,(0,255,0),-1)
+                box = np.int0(box)
+                #cv2.circle(img,(box[0][0], box[0][1]),5,(0,255,0),-1)
+                res = sorted(box.tolist(), key=lambda x: x[1], reverse=1)
+                bottom_x = res[0][0]
+                bottom_y = res[0][1]
+                bottom_x_1 = res[1][0]
+                bottom_y_1 = res[1][1]
+                #cv2.circle(img,(res[1][1], res[1][0]),5,(0,255,0),-1)
+
+                #print("Bottom coords:", (w // 2 + x, y + h))
+                #Проверяем какая часть робота находится ниже линии сетки, если слишком
+                #маленькая, то координаты надо определять по центру(либо просто точка выше )
+                #height_under = (y + h) - (((y + h) // 100) * 100) #100 - высота клетки(вертикальной)
+                #(y + h) // 100 - целое кол-во клеток
+                #print(height_under)
+                final.append(contours[c])
+                robot_id = letters_for_robots[len(final) - 1]
+                cx = int(i['m10'] / i['m00'])
+                cy = int(i['m01'] / i['m00'])
+                for j in robots_pixels:
+                    x_p = int(j[0] / 2.5)
+                    y_p = int(j[1] / 2.1818 + 20)
+                    
+                    #cv2.circle(img, (x_p, y_p), 5, (255, 255, 255), -1)
+                    #print((x_p, y_p))
+                    
+                    in_contour = cv2.pointPolygonTest(contours[c], [x_p, y_p], True)
+                    if in_contour >= 0:
+                        if j[2] == 1:
+                            print(Fore.GREEN + f"Robot with id {robot_id} is enemy")
+                        else:
+                            print(Fore.GREEN + f"Robot with id {robot_id} is our")                        
+                        break
+
+                robots_coords += [(bottom_x, bottom_y, robot_id), (bottom_x_1, bottom_y_1, robot_id)]
+
+                #cv2.putText(img, f"{new_coords[0]} {new_coords[1]}", (cx - 20, cy - 15),
+                #        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
+                #print(f"x: {new_coords[0]} y: {new_coords[1]}")
+
+            c += 1
+        
+        alarms = []
+        
+        for a, b in itertools.combinations(robots_coords, 2):
+            if a[2] != b[2]:
+                robot_id_0 = a[2]
+                robot_id_1 = b[2]
+                a = (a[0], a[1])
+                b = (b[0], b[1])
+                distance = ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5
+                if distance <= 80:
+                    if (robot_id_0, robot_id_1) not in alarms and (robot_id_1, robot_id_0) not in alarms:
+                        alarms.append((robot_id_0, robot_id_1))
+        if len(alarms) > 0:
+            for i in alarms:
+                print(Fore.RED + f"Alarm {i[0]} {i[1]}")
+        else:
+            print(Fore.GREEN + f"No alarms")
+        print("Time for all operations:", time.time() - strt_time)
+    cv2.imshow(f"Res{i}", img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+'''
+
+def main():
+    #initing logger first
+    letters_for_robots = ["A", "B", "C", "D", "F", "E"]
+    STATUS = 1 #DEBUG - 1; PRODUCTION - 0 #PRODUCTION only errors writing in log file
+    if STATUS == 0:
+        start_time = time.ctime()
+        start_time = str(start_time).replace(":", "-")
+        log = Logger(f"logs/{start_time}.txt")
+    if STATUS:
+        print(Fore.YELLOW + f"[INFO] Testing library mode, running with __name__ == __main__")
+        print(Fore.YELLOW + f"[INFO] Loading model...")
+    try:
+        net = Net("model.t")
+        print(Fore.YELLOW + f"[INFO] yTorch running on {net.DEVICE}")
+    except: 
         if not STATUS: #log
             log.write_log(str(traceback.format_exc()))
         else:
@@ -152,23 +285,20 @@ if __name__ == "__main__":
     
     field = cv2.imread("field_lined.jpg")
     if STATUS: print(Fore.YELLOW + f"[INFO] Inited")
-    for iii in range(5):
+    for iii in range(1):
         strt_time = time.time()
-        img = cv2.imread("tests/21.jpg") #1.jpg 3.jpg 4.jpg(A и С не должно быть) 5.jpg - работает нормально 10.jpg
-        
+        #cap = cv2.VideoCapture(0)
+        img = cv2.imread("tests/2.jpg") #1.jpg - наш aruco 3.jpg 4.jpg(A и С не должно быть) 5.jpg - работает нормально 10.jpg 13.jpg - враг; 2 - и наш, и враг
+        #_, img = cap.read()
         robots_worker = Robots(img)
-        robots_count = robots_worker.robots_count_aruco()
+        robots_count, robots_pixels = robots_worker.robots_count_aruco()
         if STATUS: print(Fore.GREEN + f"[DEBUG] Aruco robots count: {robots_count}")
         img, shape = img_worker.corerct_perspective(img)
         img = cv2.resize(img, (512, 512))
-        cv2.imwrite("corrected.png", img)
         img = img[0:330, 0:512] #убираем пустоту внизу
         img, mask = net.get_colored_img(img)
         #img_worker.draw_lines(img) #рисуем сетку на фотографии
         mask = np.where(mask[0, :, :] == 1, 255, 0)
-
-        
-
         cv2.imwrite("mask.png", mask) # исправить
         m = cv2.imread("mask.png") # исправить через np.uint8
         m = cv2.cvtColor(m, cv2.COLOR_RGB2GRAY)
@@ -185,11 +315,12 @@ if __name__ == "__main__":
         temp_moments = sorted(moments, reverse=True)
         min_square = temp_moments[robots_count - 1]
         if min_square < 50:#минимальная площадь слишком маленькая
-            print("Warning: to minimum. Aruco errored?")
+            print(Fore.YELLOW + "Warning: to minimum. Aruco errored?")
         robots_coords = []
         temp_check = []
         for i in map(cv2.moments, contours):
             if i["m00"] >= min_square:
+                
                 #x,y,w,h = cv2.boundingRect(contours[c])
                 #cv2.rectangle(img,(x,y),(x+w,y+h),(0, 255, 0),2)
                 rect = cv2.minAreaRect(contours[c])
@@ -204,7 +335,6 @@ if __name__ == "__main__":
                 box = np.int0(box)
                 #cv2.circle(img,(box[0][0], box[0][1]),5,(0,255,0),-1)
                 cv2.drawContours(img,[box],0,(0,0,255),2)
-                print("Before:", box)
                 res = sorted(box.tolist(), key=lambda x: x[1], reverse=1)
                 cv2.circle(img,(res[0][0], res[0][1]),5,(0,255,0),-1)
                 cv2.circle(img,(res[1][0], res[1][1]),5,(0,255,0),-1)
@@ -222,16 +352,33 @@ if __name__ == "__main__":
                 #print(height_under)
                 final.append(contours[c])
                 robot_id = letters_for_robots[len(final) - 1]
-                cx = int(i['m10']/i['m00'])
-                cy = int(i['m01']/i['m00'])
+                cx = int(i['m10'] / i['m00'])
+                cy = int(i['m01'] / i['m00'])
+                for j in robots_pixels:
+                    x_p = int(j[0] / 2.5)
+                    y_p = int(j[1] / 2.1818 + 20)
+                    
+                    #cv2.circle(img, (x_p, y_p), 5, (255, 255, 255), -1)
+                    #print((x_p, y_p))
+                    
+                    in_contour = cv2.pointPolygonTest(contours[c], [x_p, y_p], True)
+                    if in_contour >= 0:
+                        if j[2] == 1:
+                            cntr_color = (0, 0, 255)    
+                            print(Fore.YELLOW + f"Robot with id {robot_id} is enemy")
+                        else:
+                            cntr_color = (255, 0, 0)
+                            print(Fore.GREEN + f"Robot with id {robot_id} is our")
+                        cv2.drawContours(img,[contours[c]],0,cntr_color, -1)
+                        
+                        break
+                        
                 #print("Centroid:", (cx, cy))
-                
-                #old
                 
                 
                 pts = [(bottom_x, bottom_y, robot_id), (bottom_x_1, bottom_y_1, robot_id)]
 
-
+                #old field
                 new_coords = [cx, cy]
                 robots_coords += pts
                 if cy in x_0_range: new_coords[0] = 0
@@ -251,13 +398,14 @@ if __name__ == "__main__":
                 
                 cv2.putText(img, f"{robot_id}", (cx - 20, cy - 15),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-
+    
                 #cv2.putText(img, f"{new_coords[0]} {new_coords[1]}", (cx - 20, cy - 15),
                 #        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
                 #print(f"x: {new_coords[0]} y: {new_coords[1]}")
             else:
                 cv2.drawContours(m, (contours[c]), -1, (0, 0, 0), 3, cv2.FILLED)
                 cv2.fillPoly(m, pts = [contours[c]], color=(0,0,0))
+                
             c += 1
         start_time = time.time()
         alarms = []
@@ -273,14 +421,14 @@ if __name__ == "__main__":
                     cv2.line(img, a, b, (0, 0, 255), 3)
                     if (robot_id_0, robot_id_1) not in alarms and (robot_id_1, robot_id_0) not in alarms:
                         alarms.append((robot_id_0, robot_id_1))
-                print(f"Distance between {robot_id_0} and {robot_id_1}: {distance}")
+                #print(f"Distance between {robot_id_0} and {robot_id_1}: {distance}")
         print(Fore.YELLOW + "Distance calcuating time:", time.time() - start_time)
         if len(alarms) > 0:
             for i in alarms:
                 print(Fore.RED + f"Alarm {i[0]} {i[1]}")
         else:
             print(Fore.GREEN + f"No alarms")
-        print(1 / (time.time() - strt_time))
+        print("FPS for all operations:", 1 / (time.time() - strt_time))
         #m = cv2.cvtColor(m, cv2.COLOR_GRAY2RGB)
         #cv2.drawContours(img, final, -1, (255,0 ,0), 3, cv2.FILLED)
         #cv2.fillPoly(m, final, color=(0,255,0))
@@ -288,7 +436,9 @@ if __name__ == "__main__":
         #cv2.imwrite("resulted_mask.png", img)
         #cv2.imwrite("field_with_robots.png", field)
     cv2.imshow(f"Res{i}", img)
-    #cv2.imshow(f"Field", field)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-            
+    #cv2.imshow(f"Field", field)  
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()            
+    

@@ -3,6 +3,7 @@ import cv2
 import matplotlib.path as mplPath
 import pathlib
 
+final_robots_pixels_coords = []
 
 def find_point(x1_1,y1_1,x1_2,y1_2,x2_1,y2_1,x2_2,y2_2):
     A1 = y1_1 - y1_2
@@ -30,6 +31,7 @@ def find_point(x1_1,y1_1,x1_2,y1_2,x2_1,y2_1,x2_2,y2_2):
         return None
 
 def get_coord(image_robots, dictionary, botmarkers, tiles):
+    global final_robots_pixels_coords
     bots = [[255, 255], [255, 255], [255, 255], [255, 255]]
     markers = cv2.aruco.detectMarkers(image_robots,dictionary)
     count=0
@@ -43,12 +45,19 @@ def get_coord(image_robots, dictionary, botmarkers, tiles):
         x4=int(marker[0][3][0])
         y4=int(marker[0][3][1])
         robot_pos=find_point(x1,y1,x3,y3,x2,y2,x4,y4)
+        
         marker_id = markers[1][count][0]
         for i in range(6):
             for j in range(10):
                 if tiles[i][j].contains_point(robot_pos):
                     for k in range(len(botmarkers)):
                         if botmarkers[k][0] <= marker_id <= botmarkers[k][-1]:
+                            print(k )
+                            if k == 0 or k == 1:
+                                robot_type = 0 # our
+                            else:
+                                robot_type = 1 #enemy
+                            final_robots_pixels_coords.append((robot_pos[0], robot_pos[1], robot_type))
                             if bots[k][0] == 255:
                                 bots[k][0] = ((j, i), (j, i-(1, 0)[i == 0]))[k <= 2]
                             else:
@@ -157,6 +166,14 @@ def find_robots(img):
 
     if old_data != data:
         old_data = data
-    return data
+    return data, final_robots_pixels_coords
 
-    
+if __name__ == "__main__":
+    robots_img = cv2.imread("tests/15.jpg")
+    print(find_robots(robots_img))
+    print(final_robots_pixels_coords)  
+    for i in final_robots_pixels_coords:
+        cv2.circle(robots_img, (i[0], i[1]), 5, (255, 0, 0), -1)
+    cv2.imshow("fff.png", robots_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
