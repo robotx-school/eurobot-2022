@@ -1,0 +1,15 @@
+Собранные whl для PyTorch(1.8.0) и TorchVision для Python3.9(0.9.0) https://github.com/ret7020/torch-arm-build
+После установки через pip install <название>.whl нужно отредактировать файлы misc.py и utils.py
+
+cd /home/pi/.local/lib/python3.9/site-packages/torchvision/ops/
+cp misc.py misc_backup.py #Backup
+echo "" > misc.py &&  nano misc.py
+Вставить содержимое этого файла https://github.com/pytorch/vision/blob/main/torchvision/ops/misc.py
+
+cd /home/pi/.local/lib/python3.9/site-packages/torchvision
+cp utils.py utils_backup.py #Backup
+echo "" > utils.py && nano utils.py 
+Вставить содержимое этого файла https://github.com/pytorch/vision/blob/main/torchvision/utils.py
+
+
+
