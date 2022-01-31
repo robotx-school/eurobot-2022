@@ -1,8 +1,8 @@
 #include "GyverStepper.h"
 #include <math.h>
 
-GStepper< STEPPER2WIRE> stepperLeft(800, A3, A4, A5);
-GStepper< STEPPER2WIRE> stepperRight(800, A0, A1, A2);
+GStepper< STEPPER2WIRE> stepperLeft(800, A1, A0, A2);
+GStepper< STEPPER2WIRE> stepperRight(800, A4, A3, A5);
 
 /*Config*/
 const int SERIAL_DBG = true; //Use serial printing for displaying info
@@ -13,6 +13,8 @@ int robot_max_speed = 1000;
 int curr_x = 0, curr_y = 0, robot_vect_x, robot_vect_y, robot_vect, robot_vect_1, point_vect, point_vect_1;
 float dist, angle; 
 int robot_size = 50;
+int WAY_SIZE = 4;
+int SIDE = 0;
 int dest_points[4][2] = {{0, 100}, {100, 100}, {100, 0}, {0, 0}};
 
 int curr_point_ind = 0;
@@ -58,6 +60,7 @@ float angle_between_2vectors(float ax, float ay, float bx, float by){
     return degrees(atan2(ax * by - ay * bx, ax * bx + ay * by));
 }
 
+
 struct paired_float calculate_path_to_point(int point[2]){
     
     struct paired tmp = vect_from_4points(curr_x, curr_y, robot_vect_x, robot_vect_y);
@@ -77,6 +80,15 @@ struct paired_float calculate_path_to_point(int point[2]){
 
     struct paired_float ret = {angle, dist};
     return ret;
+}
+
+void recreate_path_side(){
+  //Use global array with coords
+  //Use for right side
+  for (int i = 0; i < WAY_SIZE; i++){
+    dest_points[i][0] = 903 - dest_points[i][0];
+    dest_points[i][1] = dest_points[i][1];
+  }
 }
 
 void nextStep(){
@@ -122,6 +134,13 @@ void setup() {
   if (SERIAL_DBG) {
     Serial.begin(115200);
   }
+  //Check side and regen array and robot coords
+  if (SIDE){
+      robot_size = -1 * robot_size;
+      curr_x = 903 - curr_x;
+      recreate_path_side();
+  }
+
   //Start
   robot_vect_x = curr_x + robot_size;
   robot_vect_y = curr_y;
@@ -141,6 +160,7 @@ void setup() {
     Serial.print("Debug: ");
     Serial.println("Motors initialized - OK");
   }
+
 
 }
 
