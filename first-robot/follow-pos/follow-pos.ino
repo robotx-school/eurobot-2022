@@ -1,8 +1,8 @@
 #include "GyverStepper.h"
 #include <math.h>
 
-GStepper< STEPPER2WIRE> stepperLeft(800, A1, A0, A2);
-GStepper< STEPPER2WIRE> stepperRight(800, A4, A3, A5);
+GStepper< STEPPER2WIRE> stepperLeft(800, 5, 2, 8);
+GStepper< STEPPER2WIRE> stepperRight(800, 6, 3, 8);
 
 /*Config*/
 const int SERIAL_DBG = true; //Use serial printing for displaying info
@@ -10,23 +10,39 @@ int robot_max_speed = 1000;
 /*Config end*/
 
 /*Other variables*/
-int curr_x = 0, curr_y = 0, robot_vect_x, robot_vect_y, robot_vect, robot_vect_1, point_vect, point_vect_1;
+int curr_x = 31, curr_y = 396, robot_vect_x, robot_vect_y, robot_vect, robot_vect_1, point_vect, point_vect_1;
 float dist, angle; 
 int robot_size = 50;
-int WAY_SIZE = 4;
+int WAY_SIZE = 6;
 int SIDE = 0;
-int dest_points[4][2] = {{0, 100}, {100, 100}, {100, 0}, {0, 0}};
-
+/* Struct: point_x, point_y, action_after_step, trigger(interruption) */
+int dest_points[8][4] = {{247, 548, 0, 0},
+                        {318, 469, 0, 0},
+                        {48, 84, 0, 0},
+                        {451, 106, 0, 1},//Zone 0 if clear zone
+                        {451, 591, 0, 0},
+                        {-2, -2, -2, -2},
+                        {603, 198, 0, 0}, //Zone 1 if zone not clear
+                        {-1, -1, 0, 0}};
+bool finish = false;
 int curr_point_ind = 0;
 float motor_step, motor_step_1; //Left and Right
 float motors_queue = -2; //queue for staright after rotation
 int rotation_dist;
 const int one_degree_rot = 4255 / 360; 
-const float one_px = 0.3035;
+float one_px = 2.2148394;
+bool cam_data = false;
 byte leftMoving, rightMoving;
 
 /*Other variables end*/
-
+/*Actions
+0 - no action
+1 - action_1
+2 - action_2
+3 - wait camera
+//While actions
+4 - while not data
+*/
 /*Functions*/
 
 //Structs for returning
@@ -39,12 +55,23 @@ struct paired_float
    float a, b;
 };
 
+void action_1(){
+  Serial.println("Performing action 1; Getting objects");
+}
+
+void action_2(){
+  Serial.println("Performing action 2; Dropping objects");
+}
+
+bool check_cam(){
+  return cam_data;
+}
 //This function converts millimeters to step
 int millimeters_to_steps(int mm) {
   return mm * 9.52381;
 }
 
-//This function converts radians to degrees| already in base library
+//This function converts radians to degrees| already in math.h library
 //float degrees(float radian){
 //    return radian * (180 / 3.14159265359);
 //}
@@ -77,7 +104,8 @@ struct paired_float calculate_path_to_point(int point[2]){
     curr_y = point[1];
     robot_vect_x = point[0] + point_vect / 5; 
     robot_vect_y = point[1] + point_vect_1 / 5;
-
+    //Serial.println(dist);
+    //Serial.println(angle);
     struct paired_float ret = {angle, dist};
     return ret;
 }
@@ -93,6 +121,32 @@ void recreate_path_side(){
 
 void nextStep(){
   if (motors_queue == -1 || motors_queue == -2){
+      Serial.print("Executing step: ");
+      Serial.println(curr_point_ind);
+      if (dest_points[curr_point_ind - 1][2] != 0 && curr_point_ind != 0){
+        switch(dest_points[curr_point_ind - 1][2])
+        {
+          case 1:
+            action_1();
+            break;
+          case 2:
+            action_2();
+            break;
+        }
+      }
+      if (dest_points[curr_point_ind - 1][3] != 0 && curr_point_ind != 0){
+        switch(dest_points[curr_point_ind - 1][3])
+        {
+          case 1:
+            if (check_cam()){
+              Serial.print("Driving to zone 0");
+            }else{
+              Serial.println("Driving to zone 1");
+              curr_point_ind = 6;
+            }
+            break;
+        }
+      }
       struct paired_float curr = calculate_path_to_point(dest_points[curr_point_ind]);
       angle = curr.a;
       dist = millimeters_to_steps(curr.b);
@@ -104,14 +158,13 @@ void nextStep(){
           rotation_dist = abs(one_degree_rot * angle);
           motor_step = rotation_dist; motor_step_1 = rotation_dist;
           if (angle > 0)
-              motor_step_1 *= -1;
-          else
               motor_step *= -1;
+          else
+              motor_step_1 *= -1;
           //Add straight to queue
           motors_queue = dist;
       }
       //Motors with motor_step and motor_step_1
-      //cout << motor_step << " " << motor_step_1 << endl;
       stepperRight.setTarget(motor_step, RELATIVE);
       stepperLeft.setTarget(motor_step_1, RELATIVE);
       
@@ -122,9 +175,7 @@ void nextStep(){
       motors_queue = -1;
       curr_point_ind++;
   }
-  if (curr_point_ind > 4){
-    curr_point_ind = 0;
-  }
+
 }
 
 
@@ -155,6 +206,9 @@ void setup() {
   stepperLeft.autoPower(0);
   stepperRight.autoPower(0);
 
+  Serial.print("One px in mms: ");
+  Serial.println(one_px);
+
 
   if (SERIAL_DBG) {
     Serial.print("Debug: ");
@@ -166,8 +220,22 @@ void setup() {
 
 
 void loop() {
-  if (!leftMoving and !rightMoving ) {
-    nextStep();
+  if (!leftMoving and !rightMoving and !finish) {
+    if (dest_points[curr_point_ind][0] != -1){
+      nextStep();
+    }else{
+      Serial.println("Finish; Stopping");
+      stepperLeft.brake();
+      stepperRight.brake();
+      stepperLeft.disable();
+      stepperRight.disable();
+      while (1)
+      {
+        delay(10000);
+      }
+        
+    }
+    
   }
   leftMoving = stepperLeft.tick();
   rightMoving = stepperRight.tick();
