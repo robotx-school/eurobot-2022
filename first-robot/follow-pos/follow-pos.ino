@@ -30,7 +30,7 @@ float motor_step, motor_step_1; //Left and Right
 float motors_queue = -2; //queue for staright after rotation
 int rotation_dist;
 const int one_degree_rot = 4255 / 360; 
-float one_px = 2.2148394;
+float one_px = 3.2948929159802307;
 bool cam_data = false;
 byte leftMoving, rightMoving;
 
