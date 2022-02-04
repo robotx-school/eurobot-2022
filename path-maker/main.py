@@ -5,13 +5,15 @@ from termcolor import colored
 import json
 import obstacles_bypass
 
+
+
 HOTKEYS = [ord("s"), ord("c"), ord("p")]  # save file, c array; preview way in creator
-START_POINT = (100, 100)
-SIDE = 1  # 0 - left side; 1 - right side (blue and yellow)
+START_POINT = (31, 396)
+SIDE = 0  # 0 - left side; 1 - right side (blue and yellow)
 
 
 def recreate_path_side(path):
-    # right side converter
+    # right side converter1
     converted_path = []
     for i in path:
         converted_path.append((903 - i[0], i[1]))
@@ -71,8 +73,18 @@ def angle_between_2vectors(ax, ay, bx, by):
 
 def generate_path(point):
     global curr_x, curr_y, obstacle_name, robot_vect_x, robot_vect_y, points_dest, curr_point_ind, field
-    field = obstacles_bypass.check_obstacles(obstacles, field, curr_x, curr_y, obstacle_size, point)
-
+    field, reroute = obstacles_bypass.check_obstacles(obstacles, field, curr_x, curr_y, obstacle_size, point)
+    if reroute != -1:
+        print("Obst reroute", reroute)
+        point = [int(reroute[0][0]), int(reroute[0][1])]
+        left = points_dest[:curr_point_ind]
+        right = points_dest[curr_point_ind + 1:]
+        if len(right) == 0:
+            right = [points_dest[-1]]
+        print(points_dest)
+        print(left, right)
+        points_dest = left + [point] + reroute + right
+        print(points_dest)
     robot_vect, robot_vect_1 = vect_from_4points(curr_x, curr_y, robot_vect_x, robot_vect_y)
     point_vect, point_vect_1 = vect_from_4points(curr_x, curr_y, point[0], point[1])
 
@@ -121,7 +133,8 @@ if __name__ == "__main__":
         route_analytics = {"dist": 0, "rotations": 0}
         curr_x, curr_y = START_POINT[0], START_POINT[1]  # start
         obstacle_size = 50
-        obstacles = [(448, 400), (675, 300), (218, 373)]
+        obstacles = [(274, 90), (474, 85), (408, 546)]
+        #obstacles = [(375, 225)]
         if SIDE == 1:
             robot_size = -1 * robot_size
             curr_x = 903 - curr_x
@@ -129,10 +142,8 @@ if __name__ == "__main__":
             print(points_dest)
         robot_vect_x, robot_vect_y = curr_x + robot_size, curr_y
 
-
-
         obstacle_name = 0
-        # field = obstacles_bypass.draw_obstacles(obstacles, field, obstacle_size)
+        field = obstacles_bypass.draw_obstacles(obstacles, field, obstacle_size)
 
         cv2.arrowedLine(field, (curr_x, curr_y), (robot_vect_x, robot_vect_y), (0, 0, 255), 5)
         curr_point_ind = 0
@@ -153,7 +164,7 @@ if __name__ == "__main__":
         curr_x, curr_y = 0, 0  # start
         obstacle_size = 50
         robot_vect_x, robot_vect_y = curr_x + robot_size, curr_y
-        obstacles = []
+
         obstacle_name = 0
         cv2.arrowedLine(field, (curr_x, curr_y), (robot_vect_x, robot_vect_y), (0, 0, 255), 5)
         cv2.namedWindow('Interactive mode')
