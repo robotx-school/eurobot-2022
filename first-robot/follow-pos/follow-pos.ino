@@ -10,27 +10,28 @@ int robot_max_speed = 1000;
 /*Config end*/
 
 /*Other variables*/
-int curr_x = 31, curr_y = 396, robot_vect_x, robot_vect_y, robot_vect, robot_vect_1, point_vect, point_vect_1;
+int curr_x = 151, curr_y = 455, robot_vect_x, robot_vect_y, robot_vect, robot_vect_1, point_vect, point_vect_1;
 float dist, angle; 
 int robot_size = 50;
 int WAY_SIZE = 6;
 int SIDE = 0;
 /* Struct: point_x, point_y, action_after_step, trigger(interruption) */
-int dest_points[8][4] = {{247, 548, 0, 0},
-                        {318, 469, 0, 0},
+/*int dest_points[8][4] = {{247, 548, 0, 0},
+                        {318, 469, 1, 0},
                         {48, 84, 0, 0},
                         {451, 106, 0, 1},//Zone 0 if clear zone
                         {451, 591, 0, 0},
                         {-2, -2, -2, -2},
                         {603, 198, 0, 0}, //Zone 1 if zone not clear
-                        {-1, -1, 0, 0}};
+                        {-1, -1, 0, 0}};*/
+int dest_points[3][4] = {{753, 455, 0, 0}, {151, 455, 0, 0}, {-1, -1, 0, 0}};
 bool finish = false;
 int curr_point_ind = 0;
-float motor_step, motor_step_1; //Left and Right
-float motors_queue = -2; //queue for staright after rotation
+int motor_step, motor_step_1; //Left and Right
+int motors_queue = -2; //queue for staright after rotation
 int rotation_dist;
-const int one_degree_rot = 4255 / 360; 
-float one_px = 3.2948929159802307;
+const int one_degree_rot = 12.3; 
+float one_px = 1.625; // virtual field width / real field width
 bool cam_data = false;
 byte leftMoving, rightMoving;
 
@@ -121,8 +122,8 @@ void recreate_path_side(){
 
 void nextStep(){
   if (motors_queue == -1 || motors_queue == -2){
-      Serial.print("Executing step: ");
-      Serial.println(curr_point_ind);
+      //Serial.print("Executing step: ");
+      //Serial.println(curr_point_ind);
       if (dest_points[curr_point_ind - 1][2] != 0 && curr_point_ind != 0){
         switch(dest_points[curr_point_ind - 1][2])
         {
@@ -149,26 +150,34 @@ void nextStep(){
       }
       struct paired_float curr = calculate_path_to_point(dest_points[curr_point_ind]);
       angle = curr.a;
+      //Serial.println(curr.b);
       dist = millimeters_to_steps(curr.b);
       motor_step = dist; motor_step_1 = dist;
       if (round(angle) == 0){
           angle = 0;
           curr_point_ind++;
       }else{
-          rotation_dist = abs(one_degree_rot * angle);
+          rotation_dist = one_degree_rot * angle;
+          
           motor_step = rotation_dist; motor_step_1 = rotation_dist;
+          
           if (angle > 0)
               motor_step *= -1;
           else
               motor_step_1 *= -1;
           //Add straight to queue
-          motors_queue = dist;
+          motors_queue = abs(dist);
       }
+       //Distance
       //Motors with motor_step and motor_step_1
+      Serial.println(motor_step);
+      Serial.println(motor_step_1);
       stepperRight.setTarget(motor_step, RELATIVE);
       stepperLeft.setTarget(motor_step_1, RELATIVE);
       
   }else{
+      Serial.println(motors_queue);
+      Serial.println(motors_queue);
       //Motors with dist and dist
       stepperRight.setTarget(motors_queue, RELATIVE);
       stepperLeft.setTarget(motors_queue, RELATIVE);
@@ -214,6 +223,10 @@ void setup() {
     Serial.print("Debug: ");
     Serial.println("Motors initialized - OK");
   }
+  //Coolibration
+  
+  Serial.print("One px in millimeters: ");
+  Serial.println(one_px, 10);
 
 
 }
