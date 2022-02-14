@@ -93,6 +93,7 @@ def main(grid, start, finish, x_delt, y_delt):
 
 
 if __name__ == "__main__":
-    with open(f'data_bfs/grid_data_{input("ID of grid data file: ")}.txt', 'r') as fr:
-        grid = json.load(fr)
-    print(main(grid, (0, 0), (10, 10)))
+    grid = [[0] * 500 for i in range(100)]
+    strt_t = time.time()
+    print(main(grid, (0, 0), (10, 10), 10, 10))
+    print(time.time() - strt_t)
