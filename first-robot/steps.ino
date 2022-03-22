@@ -7,7 +7,6 @@
 #include <RF24.h>
 #include "GyverStepper.h"
 #include <Servo.h>
-#include <microLED.h>
 #define COLOR_DEBTH 3
 #define STRIP_PIN 8
 #define NUMLEDS 1
@@ -72,28 +71,30 @@ int mms(int mm)
   return mm * 9.52381;
 }
 // 1000 шагов - 105 мм
-int steps_match_blue[35][4] =
+int steps_match_blue[40][4] =
 {
   {mms(350),mms(350),1, 0},
-  {one_degree * 90, -one_degree * 90, 1, 0},
+  {one_degree * 91, -one_degree * 91, 1, 0},
   {mms(700), mms(700), 1, 0},
-  {one_degree * 55, -one_degree * 55, 1, 4},
+  {one_degree * 50, -one_degree * 50, 1, 4},
   {mms(250), mms(250), 1, 5},
   {0, 0, 1, 7},
-  {-mms(100), -mms(100), 1, 0},
-  {-one_degree * 180, one_degree * 180, 1, 0},
+  {-mms(110), -mms(110), 1, 0},
+  {-one_degree * 185, one_degree * 185, 1, 0},
   {-mms(300), -mms(300), 1, 6},
   {mms(300), mms(300), 1, 0},
   {-one_degree * 75, one_degree * 75, 1, 0},
   {mms(500), mms(500), 1, 0},
   {one_degree * 30, -one_degree * 30, 1, 0},
-  {mms(900), mms(900), 1, 4},
+  {mms(950), mms(950), 1, 4},
   {0, 0, 1, 7}, 
+  {0, 0, 1, 9},
   {-mms(150), -mms(150), 1, 0},
+  {0, 0, 1, 5},
   {one_degree * 90, -one_degree * 90, 1, 0},
   {-mms(300), -mms(300), 1, 0},
-  {mms(930), mms(930), 1, 0},
-  {one_degree * 125, -one_degree * 125, 1, 3}, 
+  {mms(940), mms(940), 1, 0},
+  {one_degree * 123, -one_degree * 123, 1, 3}, 
   {mms(1600), mms(1600), 1, 0},
   {-mms(200), -mms(200), 1, 8},
   {mms(300), mms(300), 1, 0},
@@ -102,11 +103,14 @@ int steps_match_blue[35][4] =
   {-one_degree * 45, one_degree * 45, 1, 0},
   {mms(800), mms(800), 1, 0},
   {one_degree * 90, -one_degree * 90, 1, 0},
-  {mms(500), mms(500), 1, 0},
-  {one_degree * 125, -one_degree * 125, 1, 3},
-  {mms(1300), mms(1300), 1, 0},
+  {mms(530), mms(530), 1, 0},
+  {one_degree * 125, -one_degree * 123, 1, 3},
+  {mms(1350), mms(1330), 1, 0},
   {-mms(300), -mms(300), 1, 8},
-  {mms(400), mms(400), 1, 0}  
+  {mms(350), mms(350), 1, 0},
+  {-mms(200), -mms(200), 1, 0},
+  {-one_degree * 240, one_degree * 240, 1, 0},
+  {mms(560), mms(560), 1, 0}
   
   
 };
@@ -141,16 +145,23 @@ void action_4(){
 }
 
 void action_5(){
-  //Выкидываем кубик
+  
   Serial.println("Action 5");
-  servo_2.write(50);
+  for (int step_u = 105; step_u >= 50; step_u--){
+    servo_2.write(step_u);
+    delay(10);
+  }
+  
 }
 void action_6(){
   Serial.println("Action 6");
   servo_3.write(0);
-  Send9ziro(); //Send drop statue signal
+  
 }
 
+void action_send_signal(){
+  Send9ziro(); //Send drop statue signal
+}
 void action_7(){
   //Wait
   delay(2000);
@@ -208,12 +219,10 @@ void setup() {
   servo_2.write(0);
   servo_3.attach(A3);
   servo_3.write(100);
-  for (int temp = 0; temp < 5; temp++){
-   Send9ziro(); //Send drop statue signal
-  }
+  
   
 
-  //action_3();
+  //action_5();
   //delay(100000);
   //action_8();
   //delay(10000);
@@ -227,8 +236,8 @@ void setup() {
   stepperRight.setAcceleration(0);
   stepperLeft.autoPower(0);
   stepperRight.autoPower(0);
-  stepperRight.setTarget(100, RELATIVE);
-  stepperLeft.setTarget(100, RELATIVE);
+  //stepperRight.setTarget(100, RELATIVE);
+  //stepperLeft.setTarget(100, RELATIVE);
   
   
   if (0) { // Another side
@@ -316,6 +325,8 @@ void nextStep() {
         case 8:
           action_8();
           break;
+        case 9:
+          action_send_signal();
       }
   }
 }
@@ -403,8 +414,8 @@ void loop()
     Serial.println("matchStarted = 1");
     stepperLeft.setMaxSpeed(dalnomerOn?700:2200);
     stepperRight.setMaxSpeed(dalnomerOn?700:2200);
-    stepperLeft.setAcceleration(2200);
-    stepperRight.setAcceleration(2200);
+    stepperLeft.setAcceleration(2000);
+    stepperRight.setAcceleration(2000);
     stepperLeft.enable();
     stepperRight.enable();
     matchTimer = millis();
