@@ -10,15 +10,17 @@
 #define COLOR_DEBTH 3
 #define STRIP_PIN 8
 #define NUMLEDS 1
-#define SIDE_PIN 3
-#define STARTER_PIN 4
-#define DIST1_PIN 5
-#define DIST2_PIN 7
-#define FRONT_PIN 6
+#define SIDE_PIN 4
+#define STARTER_PIN 7
+#define FRONT_PIN 1
+#define DIST1_PIN 1
+#define DIST2_PIN 1
+
 
 GStepper< STEPPER2WIRE> stepperLeft(800, 5, 2, 8);
 GStepper< STEPPER2WIRE> stepperRight(800, 6, 3, 8);
 
+//Servos
 Servo servo;
 Servo servo_1;
 Servo servo_2;
@@ -27,7 +29,7 @@ Servo servo_3;
 const uint64_t pipe = 0xF1F1F1F1F1LL;
 RF24 radio(9, 10); // CE, CSN
 byte matchStarted = 0;
-byte readyToStart = 1;
+byte readyToStart = 0;
 byte returnMode = 0;
 byte flagOpened = 0;
 uint32_t stopTimer = 0;
@@ -39,22 +41,25 @@ int targetLeft;
 int targetRight;
 byte leftMoving;
 byte rightMoving;
-byte mooring=0;
-int open_servo_0 = 180;
-int close_servo_0 = 15;
-int open_servo_1 = 0;
-int close_servo_1 = 173;
+byte mooring = 0;
+
+const int open_servo_0 = 180;
+const int close_servo_0 = 15;
+const int open_servo_1 = 0;
+const int close_servo_1 = 173;
+
 byte dalnomerOn = 0;
 byte side = 0;
 int stepcounter = -1;
-int rotation = 4320;
-int one_degree = 12.999;
+int rotation = 4320; //Deprecated
+int one_degree = 12.999; 
 byte data[9];
 uint32_t timer;
 Servo steering;
 int steeringpos = 90;
 int sp, spL, spR;
 int set_current_side = 0;
+
 
 /*
    0  - шаг до нажатия переднего выключателя, не учитывать передние дальномеры
@@ -71,7 +76,7 @@ int mms(int mm)
   return mm * 9.52381;
 }
 // 1000 шагов - 105 мм
-int steps_match_blue[40][4] =
+int steps_match_blue[41][4] =
 {
   {mms(350),mms(350),1, 0},
   {one_degree * 91, -one_degree * 91, 1, 0},
@@ -82,6 +87,7 @@ int steps_match_blue[40][4] =
   {-mms(110), -mms(110), 1, 0},
   {-one_degree * 185, one_degree * 185, 1, 0},
   {-mms(300), -mms(300), 1, 6},
+  {0, 0, 1, 7}, 
   {mms(300), mms(300), 1, 0},
   {-one_degree * 75, one_degree * 75, 1, 0},
   {mms(500), mms(500), 1, 0},
@@ -98,7 +104,9 @@ int steps_match_blue[40][4] =
   {mms(1600), mms(1600), 1, 0},
   {-mms(200), -mms(200), 1, 8},
   {mms(300), mms(300), 1, 0},
-  {-mms(300), -mms(300), 1, 2},
+  {-mms(300), -mms(300), 1, 8},
+  {mms(400), mms(400), 1, 0},
+  {-mms(300), -mms(300), 1, 0},
   {-one_degree * 180, one_degree * 180, 1, 0},
   {-one_degree * 45, one_degree * 45, 1, 0},
   {mms(800), mms(800), 1, 0},
@@ -113,7 +121,7 @@ int steps_match_blue[40][4] =
   {mms(560), mms(560), 1, 0}
   
   
-};
+ };
 
 int steps_match_yellow[35][4];
 
@@ -145,7 +153,7 @@ void action_4(){
 }
 
 void action_5(){
-  
+  //Серво для подъёма статуи, поднимаем
   Serial.println("Action 5");
   for (int step_u = 105; step_u >= 50; step_u--){
     servo_2.write(step_u);
@@ -170,8 +178,20 @@ void action_7(){
 void action_8(){
   servo.write(60);
   servo_1.write(130);
-  
 }
+
+//Extra useful functions(NOT INITED in switch/case)
+
+void change_speed(int left_motor_speed, int right_motor_speed){
+    //How to use this params inside way init?????
+    //We need to develop a new way architecture
+    stepperLeft.setMaxSpeed(left_motor_speed);
+    stepperRight.setMaxSpeed(right_motor_speed);
+}
+
+
+
+
 void Send9ziro(){
   byte _[9];
   radio.setChannel(10);
@@ -191,6 +211,9 @@ void Send9ziro(){
 
 
 void setup() {
+  pinMode(SIDE_PIN, INPUT_PULLUP);
+  pinMode(STARTER_PIN, INPUT_PULLUP);
+  
   /*
   pinMode(SIDE_PIN, INPUT_PULLUP);
   pinMode(STARTER_PIN, INPUT_PULLUP);
@@ -199,9 +222,8 @@ void setup() {
   pinMode(FRONT_PIN, INPUT_PULLUP);
   */
   Serial.begin(9600);
-  pinMode(2, OUTPUT);
-  pinMode(3, OUTPUT);
-  steering.attach(6);
+
+  //steering.attach(6);
   radio.begin();
   delay(2);
   radio.setChannel(10); // канал (0-127)
@@ -210,22 +232,18 @@ void setup() {
   radio.openReadingPipe(1, pipe);
   radio.startListening();
 
-  //Servo
+  //Servo init
+  servo_2.attach(A2);
   servo.attach(A1);
   servo_1.attach(A0);
+  servo_3.attach(A3);
+  
+  //Prepare servos; close them
   servo.write(close_servo_0);
   servo_1.write(close_servo_1);
-  servo_2.attach(A2);
   servo_2.write(0);
-  servo_3.attach(A3);
   servo_3.write(100);
   
-  
-
-  //action_5();
-  //delay(100000);
-  //action_8();
-  //delay(10000);
   
   //Steppers
   stepperLeft.setRunMode(FOLLOW_POS);
@@ -236,11 +254,25 @@ void setup() {
   stepperRight.setAcceleration(0);
   stepperLeft.autoPower(0);
   stepperRight.autoPower(0);
+
+  //Test motors
   //stepperRight.setTarget(100, RELATIVE);
   //stepperLeft.setTarget(100, RELATIVE);
   
   
-  if (0) { // Another side
+  if (digitalRead(SIDE_PIN) == 0) { // Another side
+    side = 1;
+    for (int step = 0; step <= 40; step++){
+        //We need to change only rotations
+        if(steps_match_blue[step][0] < 0 || steps_match_blue[step][1] < 0){
+            if (!(steps_match_blue[step][0] < 0 && steps_match_blue[step][1] < 0)){ 
+               steps_match_blue[step][0]  = -steps_match_blue[step][0];
+               steps_match_blue[step][1] = -steps_match_blue[step][1];
+            }
+        }
+    }
+    /*
+    Serial.println("Another side");
     side = 0;
     for (int i = 0; i <= 99; i++) {
     if (!steps_match_blue[i][0] and !steps_match_blue[i][1] and !steps_match_blue[i][2] ) break;
@@ -275,7 +307,7 @@ void setup() {
         
       }
       steps_match_yellow[i][2] = steps_match_blue[i][2];
-  }
+  }*/
   } else {
     side = 1;
   }
@@ -283,6 +315,7 @@ void setup() {
 
 
 void nextStep() {
+  Serial.println("Next step");
   stepTimer = millis();
   stepperRight.setCurrent(0);
   stepperLeft.setCurrent(0);
@@ -326,7 +359,7 @@ void nextStep() {
           action_8();
           break;
         case 9:
-          action_send_signal();
+          action_send_signal(); 
       }
   }
 }
@@ -395,31 +428,37 @@ void match() {
 
 void loop()
 {
-  leftMoving = stepperLeft.tick();
-  rightMoving = stepperRight.tick();
+   if (matchStarted){
+    leftMoving = stepperLeft.tick();
+    rightMoving = stepperRight.tick();
+    //Serial.println("Tick");
+   }
 
   /********************Когда робот запущен, выполняем программу********************/
   if (matchStarted and !stopMode) match();
   /********************Когда робот запущен, выполняем программу********************/
 
   if (!readyToStart and !matchStarted) {//только включили робота, ждем установки пускового шнура
-
     if (digitalRead(STARTER_PIN) == 0) {
       readyToStart = 1;
+      Serial.println("Ready");
       delay(1000);
+      
     }
   }
   if (readyToStart and !matchStarted) {//готов к старту ждем выдергивания шнура
-    matchStarted = 1;
-    Serial.println("matchStarted = 1");
-    stepperLeft.setMaxSpeed(dalnomerOn?700:2200);
-    stepperRight.setMaxSpeed(dalnomerOn?700:2200);
-    stepperLeft.setAcceleration(2000);
-    stepperRight.setAcceleration(2000);
-    stepperLeft.enable();
-    stepperRight.enable();
-    matchTimer = millis();
-    flagTimer = millis();  
+    if (digitalRead(STARTER_PIN) == 1) {
+      matchStarted = 1;
+      Serial.println("matchStarted = 1");
+      stepperLeft.setMaxSpeed(dalnomerOn?700:2200);
+      stepperRight.setMaxSpeed(dalnomerOn?700:2200);
+      stepperLeft.setAcceleration(2000);
+      stepperRight.setAcceleration(2000);
+      stepperLeft.enable();
+      stepperRight.enable();
+      matchTimer = millis();
+      
+    }
   }
   if (((millis() - matchTimer) > 98000) and matchStarted) {//остановка робота в конце матча
     Serial.println("Finish");
