@@ -76,13 +76,14 @@ int mms(int mm)
   return mm * 9.52381;
 }
 // 1000 шагов - 105 мм
-int steps_match_blue[41][4] =
+int steps_match_blue[50][4] =
 {
+  {0, 0, 1, 10},
   {mms(350),mms(350),1, 0},
   {one_degree * 91, -one_degree * 91, 1, 0},
-  {mms(700), mms(700), 1, 0},
+  {mms(725), mms(725), 1, 0},
   {one_degree * 50, -one_degree * 50, 1, 4},
-  {mms(250), mms(250), 1, 5},
+  {mms(255), mms(255), 1, 5},
   {0, 0, 1, 7},
   {-mms(110), -mms(110), 1, 0},
   {-one_degree * 185, one_degree * 185, 1, 0},
@@ -95,29 +96,32 @@ int steps_match_blue[41][4] =
   {mms(950), mms(950), 1, 4},
   {0, 0, 1, 7}, 
   {0, 0, 1, 9},
+  {-500, -500, 1, 0},
+  {0, 0, 1, 12},
+  {560, 560, 1, 0},
   {-mms(150), -mms(150), 1, 0},
   {0, 0, 1, 5},
   {one_degree * 90, -one_degree * 90, 1, 0},
   {-mms(300), -mms(300), 1, 0},
   {mms(940), mms(940), 1, 0},
-  {one_degree * 123, -one_degree * 123, 1, 3}, 
+  {one_degree * 121, -one_degree * 121, 1, 3}, 
   {mms(1600), mms(1600), 1, 0},
   {-mms(200), -mms(200), 1, 8},
   {mms(300), mms(300), 1, 0},
-  {-mms(300), -mms(300), 1, 8},
-  {mms(400), mms(400), 1, 0},
-  {-mms(300), -mms(300), 1, 0},
-  {-one_degree * 180, one_degree * 180, 1, 0},
+  {-mms(200), -mms(200), 1, 8},
+  //{mms(400), mms(400), 1, 0},
+  //{-mms(200), -mms(200), 1, 0},
+  {-one_degree * 180, one_degree * 180, 1, 2},
   {-one_degree * 45, one_degree * 45, 1, 0},
-  {mms(800), mms(800), 1, 0},
+  {mms(760), mms(760), 1, 0},
   {one_degree * 90, -one_degree * 90, 1, 0},
-  {mms(530), mms(530), 1, 0},
-  {one_degree * 125, -one_degree * 123, 1, 3},
-  {mms(1350), mms(1330), 1, 0},
-  {-mms(300), -mms(300), 1, 8},
+  {mms(660), mms(660), 1, 0},
+  {one_degree * 121, -one_degree * 121, 1, 3},
+  {mms(1380), mms(1380), 1, 0},
+  {-mms(200), -mms(200), 1, 8},
   {mms(350), mms(350), 1, 0},
   {-mms(200), -mms(200), 1, 0},
-  {-one_degree * 240, one_degree * 240, 1, 0},
+  {-one_degree * 250, one_degree * 250, 1, 0},
   {mms(560), mms(560), 1, 0}
   
   
@@ -149,7 +153,7 @@ void action_3(){
 void action_4(){
   //Серво для подъёма статуи(опускаем)
   Serial.println("Performing action 4; statue servo 0");
-  servo_2.write(105);
+  servo_2.write(118);
 }
 
 void action_5(){
@@ -172,7 +176,7 @@ void action_send_signal(){
 }
 void action_7(){
   //Wait
-  delay(2000);
+  delay(1300);
 }
 
 void action_8(){
@@ -180,6 +184,9 @@ void action_8(){
   servo_1.write(130);
 }
 
+void action_tolk(){
+  servo_2.write(160);
+}
 //Extra useful functions(NOT INITED in switch/case)
 
 void change_speed(int left_motor_speed, int right_motor_speed){
@@ -243,6 +250,7 @@ void setup() {
   servo_1.write(close_servo_1);
   servo_2.write(0);
   servo_3.write(100);
+  //action_4();
   
   
   //Steppers
@@ -259,10 +267,10 @@ void setup() {
   //stepperRight.setTarget(100, RELATIVE);
   //stepperLeft.setTarget(100, RELATIVE);
   
-  
+  //digitalRead(SIDE_PIN) == 0
   if (digitalRead(SIDE_PIN) == 0) { // Another side
     side = 1;
-    for (int step = 0; step <= 40; step++){
+    for (int step = 0; step <= 44; step++){
         //We need to change only rotations
         if(steps_match_blue[step][0] < 0 || steps_match_blue[step][1] < 0){
             if (!(steps_match_blue[step][0] < 0 && steps_match_blue[step][1] < 0)){ 
@@ -360,6 +368,18 @@ void nextStep() {
           break;
         case 9:
           action_send_signal(); 
+          break;
+        case 10:
+          //Speedup
+          change_speed(2500, 2500);
+          break;
+        case 11:
+          //Less speed 
+          change_speed(2200, 2200);
+          break;
+        case 12:
+           action_tolk();
+           break;
       }
   }
 }
@@ -460,7 +480,7 @@ void loop()
       
     }
   }
-  if (((millis() - matchTimer) > 98000) and matchStarted) {//остановка робота в конце матча
+  if (((millis() - matchTimer) > 90800) and matchStarted) {//остановка робота в конце матча
     Serial.println("Finish");
     stepperLeft.brake();
     stepperRight.brake();
