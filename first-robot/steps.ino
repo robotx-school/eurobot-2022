@@ -13,8 +13,8 @@
 #define SIDE_PIN 4
 #define STARTER_PIN 7
 #define FRONT_PIN 1
-#define DIST1_PIN 1
-#define DIST2_PIN 1
+#define DIST1_PIN A6
+#define DIST2_PIN A7
 
 
 GStepper< STEPPER2WIRE> stepperLeft(800, 5, 2, 8);
@@ -48,7 +48,7 @@ const int close_servo_0 = 15;
 const int open_servo_1 = 0;
 const int close_servo_1 = 173;
 
-byte dalnomerOn = 0;
+byte dalnomerOn = 1;
 byte side = 0;
 int stepcounter = -1;
 int rotation = 4320; //Deprecated
@@ -79,8 +79,8 @@ int mms(int mm)
 int steps_match_blue[50][4] =
 {
   {0, 0, 1, 10},
-  {mms(350),mms(350),1, 0},
-  {one_degree * 91, -one_degree * 91, 1, 0},
+  {mms(350),mms(350),100, 0},
+  {one_degree * 92, -one_degree * 92, 100, 0},
   {mms(725), mms(725), 1, 0},
   {one_degree * 50, -one_degree * 50, 1, 4},
   {mms(255), mms(255), 1, 5},
@@ -105,12 +105,10 @@ int steps_match_blue[50][4] =
   {-mms(300), -mms(300), 1, 0},
   {mms(940), mms(940), 1, 0},
   {one_degree * 121, -one_degree * 121, 1, 3}, 
-  {mms(1600), mms(1600), 1, 0},
+  {mms(1600), mms(1600), 1, 0}, //drop
   {-mms(200), -mms(200), 1, 8},
   {mms(300), mms(300), 1, 0},
   {-mms(200), -mms(200), 1, 8},
-  //{mms(400), mms(400), 1, 0},
-  //{-mms(200), -mms(200), 1, 0},
   {-one_degree * 180, one_degree * 180, 1, 2},
   {-one_degree * 45, one_degree * 45, 1, 0},
   {mms(760), mms(760), 1, 0},
@@ -153,7 +151,7 @@ void action_3(){
 void action_4(){
   //Серво для подъёма статуи(опускаем)
   Serial.println("Performing action 4; statue servo 0");
-  servo_2.write(118);
+  servo_2.write(90);
 }
 
 void action_5(){
@@ -167,7 +165,11 @@ void action_5(){
 }
 void action_6(){
   Serial.println("Action 6");
-  servo_3.write(0);
+  for (int i = 100; i >= 0; i--){
+    servo_3.write(i);
+    delay(10);
+  }
+  
   
 }
 
@@ -229,7 +231,7 @@ void setup() {
   pinMode(FRONT_PIN, INPUT_PULLUP);
   */
   Serial.begin(9600);
-
+  
   //steering.attach(6);
   radio.begin();
   delay(2);
@@ -250,7 +252,7 @@ void setup() {
   servo_1.write(close_servo_1);
   servo_2.write(0);
   servo_3.write(100);
-  //action_4();
+  //action_6();
   
   
   //Steppers
@@ -273,12 +275,34 @@ void setup() {
     for (int step = 0; step <= 44; step++){
         //We need to change only rotations
         if(steps_match_blue[step][0] < 0 || steps_match_blue[step][1] < 0){
-            if (!(steps_match_blue[step][0] < 0 && steps_match_blue[step][1] < 0)){ 
-               steps_match_blue[step][0]  = -steps_match_blue[step][0];
-               steps_match_blue[step][1] = -steps_match_blue[step][1];
+            if (step == 2){
+              steps_match_blue[2][0]  = -one_degree * 93;
+              steps_match_blue[2][1]  = one_degree * 93;
+            }else if(step == 3){
+              steps_match_blue[3][0]  = 715;
+              steps_match_blue[3][1]  = 715;
+            }else if(step == 8){
+              steps_match_blue[8][0]  = one_degree * 175;
+              steps_match_blue[8][1]  = -one_degree * 175;
+            }else if (step == 25){
+              steps_match_blue[25][0]  = mms(940);
+              steps_match_blue[25][1]  = mms(940);
+            }else if (step == 26){
+              steps_match_blue[26][0]  = -one_degree * 119;
+              steps_match_blue[26][1]  = one_degree * 119;
+            } else if(step == 36){
+              steps_match_blue[36][0]  = -one_degree * 130;
+              steps_match_blue[36][1]  = one_degree * 130;
+            }else{
+              if (!(steps_match_blue[step][0] < 0 && steps_match_blue[step][1] < 0)){ 
+                 steps_match_blue[step][0]  = -steps_match_blue[step][0];
+                 steps_match_blue[step][1] = -steps_match_blue[step][1];
+              }
             }
+            
         }
     }
+
     /*
     Serial.println("Another side");
     side = 0;
@@ -323,7 +347,6 @@ void setup() {
 
 
 void nextStep() {
-  Serial.println("Next step");
   stepTimer = millis();
   stepperRight.setCurrent(0);
   stepperLeft.setCurrent(0);
@@ -419,6 +442,7 @@ void match() {
   }
 
   if (leftMoving and rightMoving and !returnMode) {
+        //Serial.println(analogRead(DIST1_PIN));
         /*if (dalnomerOn and (digitalRead(DIST1_PIN) or digitalRead(DIST2_PIN)) and (side?steps_match_blue[stepcounter][2]:steps_match_yellow[stepcounter][2]) > 1) {
       stepperLeft.brake();
       stepperRight.brake();
@@ -427,7 +451,9 @@ void match() {
       stepperLeft.setTarget(-stepperLeft.getCurrent(), RELATIVE);
       stepperRight.setTarget(-stepperRight.getCurrent(), RELATIVE);
     }*/
-    if (dalnomerOn and (digitalRead(DIST1_PIN)) and ( (side?steps_match_blue[((stepcounter)<0?0:(stepcounter))][1]:steps_match_yellow[((stepcounter)<0?0:(stepcounter))][1])>0)and (side?steps_match_blue[stepcounter][2]:steps_match_yellow[stepcounter][2]) > 1) {
+    //steps_match_blue[stepcounter][2] == 100
+    if (dalnomerOn and (analogRead(DIST1_PIN) > 600) and (1)) {
+      
       stepperLeft.brake();
       stepperRight.brake();
       stepcounter--;
@@ -435,7 +461,7 @@ void match() {
       stepperLeft.setTarget(-stepperLeft.getCurrent(), RELATIVE);
       stepperRight.setTarget(-stepperRight.getCurrent(), RELATIVE);
     }
-    if (dalnomerOn and (digitalRead(DIST2_PIN)) and ( (side?steps_match_blue[((stepcounter)<0?0:(stepcounter))][1]:steps_match_yellow[((stepcounter)<0?0:(stepcounter))][1])<0)and (side?steps_match_blue[stepcounter][2]:steps_match_yellow[stepcounter][2]) > 1) {
+    if (dalnomerOn and (analogRead(DIST2_PIN) > 600) and (1)) {
       stepperLeft.brake();
       stepperRight.brake();
       stepcounter--;
@@ -470,10 +496,10 @@ void loop()
     if (digitalRead(STARTER_PIN) == 1) {
       matchStarted = 1;
       Serial.println("matchStarted = 1");
-      stepperLeft.setMaxSpeed(dalnomerOn?700:2200);
-      stepperRight.setMaxSpeed(dalnomerOn?700:2200);
-      stepperLeft.setAcceleration(2000);
-      stepperRight.setAcceleration(2000);
+      stepperLeft.setMaxSpeed(2200);
+      stepperRight.setMaxSpeed(2200);
+      stepperLeft.setAcceleration(1900);
+      stepperRight.setAcceleration(1900);
       stepperLeft.enable();
       stepperRight.enable();
       matchTimer = millis();
