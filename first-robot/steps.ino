@@ -27,7 +27,7 @@ Servo servo_2;
 Servo servo_3;
 
 const uint64_t pipe = 0xF1F1F1F1F1LL;
-RF24 radio(9, 10); // CE, CSN
+RF24 radio(9, 10); // CE, CSNsteps_match_blue[stepcounter][2] == 100
 byte matchStarted = 0;
 byte readyToStart = 0;
 byte returnMode = 0;
@@ -79,8 +79,8 @@ int mms(int mm)
 int steps_match_blue[50][4] =
 {
   {0, 0, 1, 10},
-  {mms(350),mms(350),100, 0},
-  {one_degree * 92, -one_degree * 92, 100, 0},
+  {mms(350),mms(350),1, 0},
+  {one_degree * 92, -one_degree * 92, 1, 0},
   {mms(725), mms(725), 1, 0},
   {one_degree * 50, -one_degree * 50, 1, 4},
   {mms(255), mms(255), 1, 5},
@@ -90,7 +90,7 @@ int steps_match_blue[50][4] =
   {-mms(300), -mms(300), 1, 6},
   {0, 0, 1, 7}, 
   {mms(300), mms(300), 1, 0},
-  {-one_degree * 75, one_degree * 75, 1, 0},
+  {-one_degree * 79, one_degree * 79, 1, 0},
   {mms(500), mms(500), 1, 0},
   {one_degree * 30, -one_degree * 30, 1, 0},
   {mms(950), mms(950), 1, 4},
@@ -105,7 +105,7 @@ int steps_match_blue[50][4] =
   {-mms(300), -mms(300), 1, 0},
   {mms(940), mms(940), 1, 0},
   {one_degree * 121, -one_degree * 121, 1, 3}, 
-  {mms(1600), mms(1600), 1, 0}, //drop
+  {mms(1600), mms(1600), 200, 0}, //drop
   {-mms(200), -mms(200), 1, 8},
   {mms(300), mms(300), 1, 0},
   {-mms(200), -mms(200), 1, 8},
@@ -157,7 +157,7 @@ void action_4(){
 void action_5(){
   //Серво для подъёма статуи, поднимаем
   Serial.println("Action 5");
-  for (int step_u = 105; step_u >= 50; step_u--){
+  for (int step_u = 105; step_u >= 0; step_u--){
     servo_2.write(step_u);
     delay(10);
   }
@@ -452,7 +452,7 @@ void match() {
       stepperRight.setTarget(-stepperRight.getCurrent(), RELATIVE);
     }*/
     //steps_match_blue[stepcounter][2] == 100
-    if (dalnomerOn and (analogRead(DIST1_PIN) > 600) and (1)) {
+    if (dalnomerOn and (analogRead(DIST1_PIN) > 600) and (steps_match_blue[stepcounter][2] == 100)) {
       
       stepperLeft.brake();
       stepperRight.brake();
@@ -461,7 +461,7 @@ void match() {
       stepperLeft.setTarget(-stepperLeft.getCurrent(), RELATIVE);
       stepperRight.setTarget(-stepperRight.getCurrent(), RELATIVE);
     }
-    if (dalnomerOn and (analogRead(DIST2_PIN) > 600) and (1)) {
+    if (dalnomerOn and (analogRead(DIST2_PIN) > 600) and (steps_match_blue[stepcounter][2] == 100) ){
       stepperLeft.brake();
       stepperRight.brake();
       stepcounter--;
@@ -506,7 +506,7 @@ void loop()
       
     }
   }
-  if (((millis() - matchTimer) > 90800) and matchStarted) {//остановка робота в конце матча
+  if (((millis() - matchTimer) > 9800000) and matchStarted) {//остановка робота в конце матча
     Serial.println("Finish");
     stepperLeft.brake();
     stepperRight.brake();
