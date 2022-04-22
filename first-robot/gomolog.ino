@@ -27,7 +27,7 @@ Servo servo_2;
 Servo servo_3;
 
 const uint64_t pipe = 0xF1F1F1F1F1LL;
-RF24 radio(9, 10); // CE, CSNsteps_match_blue[stepcounter][2] == 100
+RF24 radio(9, 10); // CE, CSN
 byte matchStarted = 0;
 byte readyToStart = 0;
 byte returnMode = 0;
@@ -51,7 +51,6 @@ const int close_servo_1 = 173;
 byte dalnomerOn = 1;
 byte side = 0;
 int stepcounter = -1;
-int rotation = 4320; //Deprecated
 int one_degree = 12.999; 
 byte data[9];
 uint32_t timer;
@@ -68,8 +67,14 @@ int set_current_side = 0;
    3  - шаг с ожиданием изменения значения переменной mooring. ждем данных с компаса
    4  - шаг с переходом на 70 шаг, если швартовка на S
    25 - изменение колёс местами
-
 */  
+
+/* Way Format
+ * {STEPS_LEFT_MOTOR, STEPS_RIGHT_MOTOR, TRIGGER, ACTION_AFTER}
+ * TRIGGERS: 1 - No trigger; 100 - Forward and backward distancemeters; 200 - Only Forward distancemeters; 
+ * 
+ * 
+ */
 
 int mms(int mm)
 {
@@ -78,8 +83,7 @@ int mms(int mm)
 // 1000 шагов - 105 мм
 int steps_match_blue[50][4] =
 {
-  {0, 0, 1, 10},
-  {mms(350),mms(350),1, 0},
+  {mms(350),mms(350),1, 200},
   {one_degree * 92, -one_degree * 92, 1, 0},
   {mms(725), mms(725), 1, 0},
   {one_degree * 50, -one_degree * 50, 1, 4},
@@ -189,7 +193,6 @@ void action_8(){
 void action_tolk(){
   servo_2.write(160);
 }
-//Extra useful functions(NOT INITED in switch/case)
 
 void change_speed(int left_motor_speed, int right_motor_speed){
     //How to use this params inside way init?????
@@ -268,13 +271,13 @@ void setup() {
   //Test motors
   //stepperRight.setTarget(100, RELATIVE);
   //stepperLeft.setTarget(100, RELATIVE);
-  
-  //digitalRead(SIDE_PIN) == 0
+
   if (digitalRead(SIDE_PIN) == 0) { // Another side
     side = 1;
     for (int step = 0; step <= 44; step++){
         //We need to change only rotations
         if(steps_match_blue[step][0] < 0 || steps_match_blue[step][1] < 0){
+            //Patch for yellow side
             if (step == 2){
               steps_match_blue[2][0]  = -one_degree * 93;
               steps_match_blue[2][1]  = one_degree * 93;
@@ -303,43 +306,6 @@ void setup() {
         }
     }
 
-    /*
-    Serial.println("Another side");
-    side = 0;
-    for (int i = 0; i <= 99; i++) {
-    if (!steps_match_blue[i][0] and !steps_match_blue[i][1] and !steps_match_blue[i][2] ) break;
-      
-      if ( (steps_match_blue[i][0]>0 and steps_match_blue[i][1]<0) or (steps_match_blue[i][0]<0 and steps_match_blue[i][1]>0) ) {
-        steps_match_yellow[i][0] = -steps_match_blue[i][0];
-        steps_match_yellow[i][1] = -steps_match_blue[i][1];
-        
-      } else if (steps_match_blue[i][2] == 25){
-        steps_match_yellow[i][0] = steps_match_blue[i][1];
-        steps_match_yellow[i][1] = steps_match_blue[i][0];
-      }else {
-        steps_match_yellow[i][0] = steps_match_blue[i][0];
-        steps_match_yellow[i][1] = steps_match_blue[i][1];
-        
-      }
-      steps_match_yellow[i][2] = steps_match_blue[i][2];
-  }
-  for (int i = 71; i <= 99;i++) {
-    if (!steps_match_blue[i][0] and !steps_match_blue[i][1] and !steps_match_blue[i][2] ) break;
-      
-      if ( (steps_match_blue[i][0]>0 and steps_match_blue[i][1]<0) or (steps_match_blue[i][0]<0 and steps_match_blue[i][1]>0) ) {
-        steps_match_yellow[i][0] = -steps_match_blue[i][0];
-        steps_match_yellow[i][1] = -steps_match_blue[i][1];
-        
-      } else if (steps_match_blue[i][2] == 25){
-        steps_match_yellow[i][0] = steps_match_blue[i][1];
-        steps_match_yellow[i][1] = steps_match_blue[i][0];
-      }else {
-        steps_match_yellow[i][0] = steps_match_blue[i][0];
-        steps_match_yellow[i][1] = steps_match_blue[i][1];
-        
-      }
-      steps_match_yellow[i][2] = steps_match_blue[i][2];
-  }*/
   } else {
     side = 1;
   }
@@ -442,15 +408,6 @@ void match() {
   }
 
   if (leftMoving and rightMoving and !returnMode) {
-        //Serial.println(analogRead(DIST1_PIN));
-        /*if (dalnomerOn and (digitalRead(DIST1_PIN) or digitalRead(DIST2_PIN)) and (side?steps_match_blue[stepcounter][2]:steps_match_yellow[stepcounter][2]) > 1) {
-      stepperLeft.brake();
-      stepperRight.brake();
-      stepcounter--;
-      returnMode = 1;
-      stepperLeft.setTarget(-stepperLeft.getCurrent(), RELATIVE);
-      stepperRight.setTarget(-stepperRight.getCurrent(), RELATIVE);
-    }*/
     //steps_match_blue[stepcounter][2] == 100
     if (dalnomerOn and (analogRead(DIST1_PIN) > 600) and stepcounter != 0 and stepcounter != 1) {
       
@@ -461,7 +418,7 @@ void match() {
       stepperLeft.setTarget(-stepperLeft.getCurrent(), RELATIVE);
       stepperRight.setTarget(-stepperRight.getCurrent(), RELATIVE);
     }
-    if (dalnomerOn and (analogRead(DIST2_PIN) > 600) and stepcounter != 0 and stepcounter != 1){
+    if (dalnomerOn and (analogRead(DIST2_PIN) > 600) and steps_match_blue[stepcounter][2] != 200){
       stepperLeft.brake();
       stepperRight.brake();
       stepcounter--;
@@ -506,7 +463,7 @@ void loop()
       
     }
   }
-  if (((millis() - matchTimer) > 9800000) and matchStarted) {//остановка робота в конце матча
+  if (((millis() - matchTimer) > 98000) and matchStarted) {//остановка робота в конце матча
     Serial.println("Finish");
     stepperLeft.brake();
     stepperRight.brake();
