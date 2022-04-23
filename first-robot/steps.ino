@@ -110,16 +110,7 @@ int steps_match_blue[50][4] =
   {mms(300), mms(300), 1, 0},
   {-mms(200), -mms(200), 1, 8},
   {-one_degree * 180, one_degree * 180, 1, 2},
-  {-one_degree * 45, one_degree * 45, 1, 0},
-  {mms(760), mms(760), 1, 0},
-  {one_degree * 90, -one_degree * 90, 1, 0},
-  {mms(660), mms(660), 1, 0},
-  {one_degree * 121, -one_degree * 121, 1, 3},
-  {mms(1380), mms(1380), 1, 0},
-  {-mms(200), -mms(200), 1, 8},
-  {mms(350), mms(350), 1, 0},
-  {-mms(200), -mms(200), 1, 0},
-  {-one_degree * 250, one_degree * 250, 1, 0},
+  {-one_degree * 60, one_degree * 60, 1, 0},
   {mms(560), mms(560), 1, 0}
   
   
@@ -272,7 +263,7 @@ void setup() {
   //digitalRead(SIDE_PIN) == 0
   if (digitalRead(SIDE_PIN) == 0) { // Another side
     side = 1;
-    for (int step = 0; step <= 44; step++){
+    for (int step = 0; step <= 33; step++){
         //We need to change only rotations
         if(steps_match_blue[step][0] < 0 || steps_match_blue[step][1] < 0){
             if (step == 2){
@@ -428,11 +419,8 @@ void match() {
       //
       nextStep();
     }*/
-  }else if ( (side?steps_match_blue[(stepcounter<0?0:stepcounter)][2]:steps_match_yellow[(stepcounter<0?0:stepcounter)][2]) == 4) {
-    if (mooring==1 and !leftMoving and !rightMoving) {
-      stepcounter=70;
-      nextStep();
-    }else if (!leftMoving and !rightMoving)
+  }else if (1) {
+   if (!leftMoving and !rightMoving and !returnMode)
       nextStep();
   } else {
     if (!leftMoving and !rightMoving ) {
@@ -441,7 +429,7 @@ void match() {
     }
   }
 
-  if (leftMoving and rightMoving and !returnMode) {
+  if (leftMoving and rightMoving) {
         //Serial.println(analogRead(DIST1_PIN));
         /*if (dalnomerOn and (digitalRead(DIST1_PIN) or digitalRead(DIST2_PIN)) and (side?steps_match_blue[stepcounter][2]:steps_match_yellow[stepcounter][2]) > 1) {
       stepperLeft.brake();
@@ -452,23 +440,23 @@ void match() {
       stepperRight.setTarget(-stepperRight.getCurrent(), RELATIVE);
     }*/
     //steps_match_blue[stepcounter][2] == 100
-    if (dalnomerOn and (analogRead(DIST1_PIN) > 600) and (steps_match_blue[stepcounter][2] == 100)) {
+    //while (analogRead(DIST1_PIN) > 600){}
+    //while (analogRead(DIST2_PIN) > 600 and stepcounter != 0 and stepcounter != 1){}
+    /*if (dalnomerOn and (analogRead(DIST1_PIN) > 600)) {
       
-      stepperLeft.brake();
-      stepperRight.brake();
-      stepcounter--;
-      returnMode = 1;
-      stepperLeft.setTarget(-stepperLeft.getCurrent(), RELATIVE);
-      stepperRight.setTarget(-stepperRight.getCurrent(), RELATIVE);
+      while (analogRead(DIST1_PIN) > 600){}
+      //stepcounter--;
+      
+
     }
-    if (dalnomerOn and (analogRead(DIST2_PIN) > 600) and (steps_match_blue[stepcounter][2] == 100) ){
-      stepperLeft.brake();
-      stepperRight.brake();
-      stepcounter--;
+    if (dalnomerOn and (analogRead(DIST2_PIN) > 600) and stepcounter != 0 and stepcounter != 1 ){
+      while (analogRead(DIST2_PIN) > 600){}
       returnMode = 1;
-      stepperLeft.setTarget(-stepperLeft.getCurrent(), RELATIVE);
-      stepperRight.setTarget(-stepperRight.getCurrent(), RELATIVE);
+      //stepcounter--;  
     }
+    if (!(analogRead(DIST2_PIN) > 600) and !(analogRead(DIST2_PIN) > 600)){
+      returnMode = 0;
+    }*/
   }
 }
 
