@@ -27,7 +27,7 @@ Servo servo_2;
 Servo servo_3;
 
 const uint64_t pipe = 0xF1F1F1F1F1LL;
-RF24 radio(9, 10); // CE, CSNsteps_match_blue[stepcounter][2] == 100
+RF24 radio(9, 10); // CE, CSN
 byte matchStarted = 0;
 byte readyToStart = 0;
 byte returnMode = 0;
@@ -42,6 +42,8 @@ int targetRight;
 byte leftMoving;
 byte rightMoving;
 byte mooring = 0;
+
+int data_radio_rasp;
 
 const int open_servo_0 = 180;
 const int close_servo_0 = 15;
@@ -142,7 +144,7 @@ void action_3(){
 void action_4(){
   //Серво для подъёма статуи(опускаем)
   Serial.println("Performing action 4; statue servo 0");
-  servo_2.write(90);
+  servo_2.write(85);
 }
 
 void action_5(){
@@ -202,7 +204,7 @@ void Send9ziro(){
   radio.openWritingPipe(pipe);
   _[8] = 0;
   radio.write(&_, sizeof(_));
-  radio.setChannel(10); // канал (0-127)
+  radio.setChannel(100); // канал (0-127)
   radio.setDataRate(RF24_1MBPS);
   radio.setPALevel(RF24_PA_HIGH);
   radio.openReadingPipe(1, pipe);
@@ -226,7 +228,7 @@ void setup() {
   //steering.attach(6);
   radio.begin();
   delay(2);
-  radio.setChannel(10); // канал (0-127)
+  radio.setChannel(100); // канал (0-127)
   radio.setDataRate(RF24_1MBPS);
   radio.setPALevel(RF24_PA_HIGH);
   radio.openReadingPipe(1, pipe);
@@ -279,8 +281,8 @@ void setup() {
               steps_match_blue[25][0]  = mms(940);
               steps_match_blue[25][1]  = mms(940);
             }else if (step == 26){
-              steps_match_blue[26][0]  = -one_degree * 119;
-              steps_match_blue[26][1]  = one_degree * 119;
+              steps_match_blue[26][0]  = -one_degree * 121;
+              steps_match_blue[26][1]  = one_degree * 121;
             } else if(step == 36){
               steps_match_blue[36][0]  = -one_degree * 130;
               steps_match_blue[36][1]  = one_degree * 130;
@@ -467,6 +469,17 @@ void loop()
     rightMoving = stepperRight.tick();
     //Serial.println("Tick");
    }
+   if (radio.available()){
+    radio.read(&data_radio_rasp, sizeof(data_radio_rasp));
+    Serial.println(data_radio_rasp);
+      if (data_radio_rasp == 2561)
+      {
+        digitalWrite(LED_BUILTIN, 1);
+      }else{
+        digitalWrite(LED_BUILTIN, 0);
+        }
+   }
+   
 
   /********************Когда робот запущен, выполняем программу********************/
   if (matchStarted and !stopMode) match();
@@ -494,7 +507,7 @@ void loop()
       
     }
   }
-  if (((millis() - matchTimer) > 9800000) and matchStarted) {//остановка робота в конце матча
+  if (((millis() - matchTimer) > 98000) and matchStarted) {//остановка робота в конце матча
     Serial.println("Finish");
     stepperLeft.brake();
     stepperRight.brake();
