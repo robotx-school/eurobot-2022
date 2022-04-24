@@ -8,15 +8,16 @@
 #include "GyverStepper.h"
 #include <Servo.h>
 #define COLOR_DEBTH 3
-#define STRIP_PIN 8
+#define STRIP_PIN 1
 #define NUMLEDS 1
 #define SIDE_PIN 4
 #define STARTER_PIN 7
 #define FRONT_PIN 1
 #define DIST1_PIN A6
 #define DIST2_PIN A7
+#include <microLED.h>
 
-
+microLED<NUMLEDS, STRIP_PIN, MLED_NO_CLOCK, LED_WS2818, ORDER_GRB, CLI_AVER> led;
 GStepper< STEPPER2WIRE> stepperLeft(800, 5, 2, 8);
 GStepper< STEPPER2WIRE> stepperRight(800, 6, 3, 8);
 
@@ -106,7 +107,7 @@ int steps_match_blue[50][4] =
   {one_degree * 90, -one_degree * 90, 1, 0},
   {-mms(300), -mms(300), 1, 0},
   {mms(940), mms(940), 1, 0},
-  {one_degree * 121, -one_degree * 121, 1, 3}, 
+  {one_degree * 123, -one_degree * 123, 1, 3}, 
   {mms(1600), mms(1600), 200, 0}, //drop
   {-mms(200), -mms(200), 1, 8},
   {mms(300), mms(300), 1, 0},
@@ -196,7 +197,7 @@ void change_speed(int left_motor_speed, int right_motor_speed){
 
 void Send9ziro(){
   byte _[9];
-  radio.setChannel(10);
+  radio.setChannel(90);
   radio.setDataRate(RF24_1MBPS);
   radio.setPALevel(RF24_PA_HIGH);
   radio.setAutoAck(1);
@@ -239,14 +240,17 @@ void setup() {
   servo.attach(A1);
   servo_1.attach(A0);
   servo_3.attach(A3);
+  led.leds[0] = mBlue;
+  led.show();
   
   //Prepare servos; close them
   servo.write(close_servo_0);
   servo_1.write(close_servo_1);
   servo_2.write(0);
   servo_3.write(100);
+
   //action_6();
-  
+  //Send9ziro();
   
   //Steppers
   stepperLeft.setRunMode(FOLLOW_POS);
@@ -275,14 +279,14 @@ void setup() {
               steps_match_blue[3][0]  = 715;
               steps_match_blue[3][1]  = 715;
             }else if(step == 8){
-              steps_match_blue[8][0]  = one_degree * 175;
-              steps_match_blue[8][1]  = -one_degree * 175;
+              steps_match_blue[8][0]  = one_degree * 174;
+              steps_match_blue[8][1]  = -one_degree * 174;
             }else if (step == 25){
-              steps_match_blue[25][0]  = mms(940);
-              steps_match_blue[25][1]  = mms(940);
+              steps_match_blue[25][0]  = mms(973);
+              steps_match_blue[25][1]  = mms(973);
             }else if (step == 26){
-              steps_match_blue[26][0]  = -one_degree * 121;
-              steps_match_blue[26][1]  = one_degree * 121;
+              steps_match_blue[26][0]  = -one_degree * 128;
+              steps_match_blue[26][1]  = one_degree * 128;
             } else if(step == 36){
               steps_match_blue[36][0]  = -one_degree * 130;
               steps_match_blue[36][1]  = one_degree * 130;
@@ -474,9 +478,13 @@ void loop()
     Serial.println(data_radio_rasp);
       if (data_radio_rasp == 2561)
       {
-        digitalWrite(LED_BUILTIN, 1);
+        //digitalWrite(LED_BUILTIN, 1);
+          led.leds[0] = mRed;
+          led.show();
       }else{
-        digitalWrite(LED_BUILTIN, 0);
+        //digitalWrite(LED_BUILTIN, 0);
+        led.leds[0] = mGreen;
+        led.show();
         }
    }
    
@@ -489,6 +497,7 @@ void loop()
     if (digitalRead(STARTER_PIN) == 0) {
       readyToStart = 1;
       Serial.println("Ready");
+      
       delay(1000);
       
     }
