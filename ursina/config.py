@@ -1,0 +1,2 @@
+TILES = (10, 10)  # x z
+SMOOTH_SPEED = 20
